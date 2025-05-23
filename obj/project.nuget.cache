@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "cWXbreCvtRA=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\lairo\\Documents\\My Games\\Terraria\\tModLoader\\ModSources\\WakfuMod\\WakfuMod.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\lairo\\.nuget\\packages\\tmodloader.codeassist\\0.1.5\\tmodloader.codeassist.0.1.5.nupkg.sha512"
+  ],
+  "logs": []
+}

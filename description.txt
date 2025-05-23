@@ -1,0 +1,179 @@
+🌌 Wakfu Mod — Terraria Edition
+Bring the magic, tactics, and chaos of the Wakfu universe into Terraria.
+Choose your class at world start (F1–F5), unlock powerful custom abilities, and play with brand-new mechanics inspired by Wakfu, Dofus, and Waven.
+
+This mod reimagines tactical RPG gameplay inside Terraria, with carefully designed classes, %MaxHP-based scaling, stylish visual effects, and deep gameplay variety.
+Follow discord Post to see the latest updates, here I upload detailed information for all minimal changes:
+https://discord.com/channels/103110554649894912/1354030852006215761
+
+Play Grobbowl!! Only rogues can play it. (Cuz they use the kick weapon) Press again F4 when you are already a rogue to change teams. Your skills 
+change to place a Goal tile and clean or destroy goal tiles (of your selected team) Be free to build your field to play. More moves and weapons to play different strategies are planned!
+
+- Added Adult Kamasu-Tar Mount! (it will dig throu tiles and travel between blocks)
+Young Kamasu-Tar pet! (Vanity)
+You can buy them from the first merchant. (by now)
+
+🌀 Selatropes (F1):
+Masters of portals and space-bending magic.
+Yugo Skin Added!!
+
+Create portals anywhere.
+
+Walk through them seamlessly (even while flying or mounted).
+
+Projectiles go through portals and auto-target the nearest enemy.
+
+New weapon: Wakmehameha
+
+4s cooldown
+
+Deals %MaxHP-based damage
+
+Can detonate portals for an extra AoE explosion (5% enemy HP to a max of 10%)
+
+Includes a custom cooldown bar UI
+
+⚔️ Yopukas (F2):
+Berserker-style melee class powered by Rage.
+Tristepin Skin Added!!
+
+Gain 1 Rage stack/sec when dealing damage (max 5 stacks).
+
+Lose 1 Rage if inactive for 3 seconds.
+
+Each stack = +10% total damage (up to +50%).
+
+Skill1 (God Punch):
+
+Summon a giant punch at your cursor.
+
+Base damage: 10 per Rage stack + melee scaling.
+
+Triggers shockwaves on hit that deal AoE and scale with Rage.
+
+Only one damage instance per NPC (either sword or shockwave).
+
+Skill2 (Jump/Stomp - X):
+
+Perform a jump in your facing direction.
+
+On landing, deal shockwave damage and consume Rage for a defensive buff.
+
+Buff grants +10 DEF per tick, up to +50 for 20 seconds. (buged)
+
+🔧 Steamers (F3):
+Futuristic summoners with deployable tech.
+
+Skill1 (V): Summon Turret
+
+Smart turret with a rotating head and homing laser.
+
+Deals base summon damage + 1% enemy MaxHP.
+
+Attack speed scales with summon damage.
+
+Pierces more targets with more minions.
+
+Can be placed on platforms.
+
+If touched by an enemy, deals contact damage.
+
+Only 1 turret active at a time (resummoning relocates it).
+
+Cooldown: 5 seconds + SFX for error feedback.
+
+Skill2: Turret Overload (Detonate)
+
+Destroy your turret in a big explosion.
+
+Deals AoE damage scaling with summon stats + 3% enemy MaxHP.
+
+Includes unique dust/particle visuals.
+
+Steamer Pistol (Weapon):
+
+Left-click: Fires homing laser shots (reduce enemy defense on hit).
+
+Right-click: Throws a sticky grenade.
+
+Grenade sticks to enemies or terrain.
+
+Explodes after 5s with small AoE.
+
+If the turret shoots it → immediate explosion with bigger radius + damage.
+
+💣 Rogues (F4):
+Tactical bombers using combo setups and positioning.
+
+Skill1: Place Bomb (2s cooldown)
+
+Max 3 bombs active.
+
+Bombs auto-upgrade when placing:
+
+1st = Tier 1 (+2% HP damage)
+
+2nd = Tier 2 (+5%)
+
+3rd = Tier 3 (+10%)
+
+Placing a 4th bomb swaps your position with the oldest (Tier 3).
+
+Skill2: Detonate All Bombs (and they can combo up and stack dmg)
+
+Bombs connect with visible wires (Tier 1 → 2 and Tier 2 → 3 only).
+
+Enemies touching wires take constant damage.
+
+Cables are animated and react visually.
+
+✨ Core Mod Systems:
+Choose your class at the start (F1 = Selatrop, F2 = Yopuka, F3 = Steamer, F4 = Rogue, F5 Zurcarac).
+
+Class selection is permanent for each character.
+
+Each class has unique abilities, UI, visual effects, and cooldowns.
+
+Damage scaling is based on flat base + %Enemy Max HP, to keep every weapon useful throughout progression.
+
+Encourages tactical thinking and ability combos.
+
+🎨 Visuals & Audio:
+Custom-made sprites, animations, UI, sound effects.
+
+Many assets made by me or contributed by the community.
+
+Thanks to Valvinium for animation/sprite help ❤️
+https://valvinium.newgrounds.com/
+
+🔄 Compatibility & Multiplayer:
+Designed to work with modded weapons that use standard logic.
+(If you want your mod weapon to pass throu portals, make sure to pin it as a "friendly" projectile = true)
+
+Multiplayer support built-in (but not heavily tested).
+
+Minimal issues with vanilla content (Zenith has minor visual bugs).
+
+Expect a lot of bugs (if you do weird things) cuz the mod is still in WIP. (But if you play as intended it works somehow very good).
+
+🧠 Future Plans:
+More classes: Aniripsa, Cra, and more.
+
+Boss fight: Nox, cuz he is so fking cool.
+
+Boss fight: Toross Mordal, cuz we need his sword as a drop.
+
+Skins (Amalia, Eva).
+
+Town NPC after defeating Nox. Ruel vendor will come and sell every wakfu weapon and Nox spawner. 
+
+
+
+Expanded weapon trees and ability trees per class.
+
+❤️ Community-Driven:
+This mod is made with love for Wakfu fans.
+If you're a fan of strategy, flashy visuals, or just want to portal-punch a skeleton across space, this mod is for you.
+
+Always looking for contributors (sprites, testers, translators).
+Get in touch or join the community to help bring the World of Twelve into Terraria!

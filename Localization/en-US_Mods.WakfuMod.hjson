@@ -1,0 +1,147 @@
+Keybinds: {
+	"Crear Portal.DisplayName": Crear  Portal
+	"Cerrar Portales.DisplayName": Cerrar  Portales
+	"Habilidad 1.DisplayName": Habilidad 1
+	"Habilidad 2.DisplayName": Habilidad 2
+	"Skill 1 Wakfu.DisplayName": Skill 1  Wakfu
+	"Skill 2 Wakfu.DisplayName": Skill 2  Wakfu
+}
+
+Projectiles: {
+	PortalProjectile.DisplayName: Portal Projectile
+	WakmehamehaProjectile.DisplayName: Wakmehameha Projectile
+	ExampleLastPrismHoldout.DisplayName: Example Last Prism Holdout
+	YopukaSwordProjectile.DisplayName: Yopuka Sword Projectile
+	YopukaShockwaveProjectile.DisplayName: Yopuka Shockwave Projectile
+	YopukaJumpAbility.DisplayName: Yopuka Jump Ability
+	SteamerTurretProjectile.DisplayName: Steamer Turret Projectile
+	laserShot.DisplayName: laser Shot
+	LaserShot.DisplayName: Laser Shot
+	SteamerGrenade.DisplayName: Steamer Grenade
+	SteamerBullet.DisplayName: Steamer Bullet
+	TymadorBomb.DisplayName: Tymador Bomb
+	YopukaThrustProjectile.DisplayName: Yopuka Thrust Projectile
+	YopukaSlashProjectile.DisplayName: Yopuka Slash Projectile
+	WakmehamehaTeleportBeam.DisplayName: Wakmehameha Teleport Beam
+	WakmehamehaFastBeam.DisplayName: Wakmehameha Fast Beam
+	WakmehamehaLeaderProjectile.DisplayName: Wakmehameha Leader Projectile
+	WakmehamehaTrailParticle.DisplayName: Wakmehameha Trail Particle
+	SteamerSpecialLaser.DisplayName: Steamer Special Laser
+	TurretActivationSignal.DisplayName: Turret Activation Signal
+	TymadorKickProjectile.DisplayName: Tymador Kick Projectile
+	ZurcarakDie.DisplayName: Zurcarak Die
+	ZurcarakFlea.DisplayName: Zurcarak Flea
+	ZurcarakMinion.DisplayName: Zurcarak Minion
+	Jalabola.DisplayName: Jalabola
+	RedKickProjectile.DisplayName: Red Kick Projectile
+	JuniorPetProjectile.DisplayName: Junior Pet Projectile
+}
+
+Items: {
+	WakmehamehaWeapon: {
+		DisplayName: Wakmehameha Weapon
+		Tooltip: ""
+	}
+
+	SteamerPistol: {
+		DisplayName: Steamer Pistol
+		Tooltip: ""
+	}
+
+	YopukaShockwaveSword: {
+		DisplayName: Yopuka Shockwave Sword
+		Tooltip: ""
+	}
+
+	TymadorKick: {
+		DisplayName: Tymador Kick
+		Tooltip: ""
+	}
+
+	Karkasa: {
+		DisplayName: Karkasa
+		Tooltip: ""
+	}
+
+	Jalaball: {
+		DisplayName: Jalaball
+		Tooltip: ""
+	}
+
+	RedTeamKick: {
+		DisplayName: Red Team Kick
+		Tooltip: ""
+	}
+
+	YugoHead: {
+		DisplayName: Yugo Head
+		Tooltip: ""
+	}
+
+	YugoBody: {
+		DisplayName: Yugo Body
+		Tooltip: ""
+	}
+
+	YugoLegs: {
+		DisplayName: Yugo Legs
+		Tooltip: ""
+	}
+
+	PinpanBody: {
+		DisplayName: Pinpan Body
+		Tooltip: ""
+	}
+
+	PinpanHead: {
+		DisplayName: Pinpan Head
+		Tooltip: ""
+	}
+
+	PinpanLegs: {
+		DisplayName: Pinpan Legs
+		Tooltip: ""
+	}
+
+	JuniorPet: {
+		DisplayName: Junior Pet
+		Tooltip: ""
+	}
+
+	KamasutarMount: {
+		DisplayName: Kamasutar Mount
+		Tooltip: ""
+	}
+}
+
+Buffs: {
+	YopukaDefenseBuff: {
+		DisplayName: Yopuka Defense Buff
+		Description: Mods.WakfuMod.Buffs.YopukaDefenseBuff.Description
+	}
+
+	TymadorCableShockDebuff: {
+		DisplayName: Tymador Cable Shock Debuff
+		Description: Mods.WakfuMod.Buffs.TymadorCableShockDebuff.Description
+	}
+
+	ZurcarakMinionBuff: {
+		DisplayName: Zurcarak Minion Buff
+		Description: Mods.WakfuMod.Buffs.ZurcarakMinionBuff.Description
+	}
+
+	JuniorBuff: {
+		DisplayName: Junior Buff
+		Description: Mods.WakfuMod.Buffs.JuniorBuff.Description
+	}
+
+	KamasutarMountBuff: {
+		DisplayName: Kamasutar Mount Buff
+		Description: Mods.WakfuMod.Buffs.KamasutarMountBuff.Description
+	}
+}
+
+Tiles: {
+	GoalTileBlue.MapEntry: Goal Tile Blue
+	GoalTileRed.MapEntry: Goal Tile Red
+}
