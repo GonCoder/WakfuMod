@@ -35,6 +35,7 @@ Projectiles: {
 	Jalabola.DisplayName: Jalabola
 	RedKickProjectile.DisplayName: Red Kick Projectile
 	JuniorPetProjectile.DisplayName: Junior Pet Projectile
+	DieExplosion.DisplayName: Die Explosion
 }
 
 Items: {

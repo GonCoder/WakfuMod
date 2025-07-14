@@ -30,10 +30,10 @@ namespace WakfuMod.jugador
 
         // --- NUEVO: Variables del Zurcarac ---
         public bool zurcarakMinionActive = false; // ¿Está el gatito invocado?
-        private int zurcarakAbility1Cooldown = 0; // Cooldown para el Arañazo Loco
-        private const int ZurcarakAbility1BaseCooldown = 180; // 3 segundos
-        private int zurcarakAbility2Cooldown = 0; // Cooldown para el Dado
-        private const int ZurcarakAbility2BaseCooldown = 1200; // 20 segundos (ejemplo, ajustar)
+        public int zurcarakAbility1Cooldown = 0; // Cooldown para el Arañazo Loco
+        public const int ZurcarakAbility1BaseCooldown = 180; // 3 segundos
+        public int zurcarakAbility2Cooldown = 0; // Cooldown para el Dado
+        public const int ZurcarakAbility2BaseCooldown = 3600; //1200 20 segundos (ejemplo, ajustar)
         public bool IsRollingDie = false; // Flag para ocultar jugador durante la habilidad 2
 
         // --- Métodos para el Arma ---
@@ -546,15 +546,24 @@ namespace WakfuMod.jugador
                                 // 2. Ocultar jugador (Señal para HideDrawLayers)
                                 IsRollingDie = true;
 
-                                // 3. Spawnea el proyectil visual del dado
-                                Projectile.NewProjectile(Player.GetSource_FromThis("ZurcarakDieCast"),
-                                    Player.Center + new Vector2(0, -30), // Ligeramente encima del jugador
-                                    new Vector2(Player.direction * 2f, -5f), // Pequeño lanzamiento hacia arriba/adelante
+                                // --- 3. Spawnea el proyectil visual del dado (CON OFFSETS) ---
+
+                                // Define tus offsets aquí (ajusta estos valores)
+                                float offsetX = 80f; // 40 píxeles delante del jugador
+                                float offsetY = -90f; // 60 píxeles POR ENCIMA del centro del jugador
+
+                                // Calcular la posición de spawn final
+                                Vector2 spawnPosition = Player.Center + new Vector2(Player.direction * offsetX, offsetY);
+
+                                Projectile.NewProjectile(
+                                    Player.GetSource_FromThis("ZurcarakDieCast"),
+                                    spawnPosition, // <-- Usar la posición con offset
+                                    Vector2.Zero, // El dado es estático, no necesita velocidad inicial
                                     ModContent.ProjectileType<ZurcarakDie>(),
                                     0, // Sin daño directo
                                     0f,
-                                    Player.whoAmI,
-                                    ai0: Player.direction // Pasar dirección inicial si es necesario para la animación
+                                    Player.whoAmI
+                                // ya no necesitamos pasar la dirección en ai[0] si el dado no se mueve
                                 );
 
                                 // 4. Sonido de lanzar dado

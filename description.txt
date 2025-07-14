@@ -9,9 +9,10 @@ https://discord.com/channels/103110554649894912/1354030852006215761
 Play Grobbowl!! Only rogues can play it. (Cuz they use the kick weapon) Press again F4 when you are already a rogue to change teams. Your skills 
 change to place a Goal tile and clean or destroy goal tiles (of your selected team) Be free to build your field to play. More moves and weapons to play different strategies are planned!
 
-- Added Adult Kamasu-Tar Mount! (it will dig throu tiles and travel between blocks)
+- Added Adult Kamasu-Tar Mount! (it digs throu tiles and travel between blocks)
 Young Kamasu-Tar pet! (Vanity)
 You can buy them from the first merchant. (by now)
+-Finished Zurca/Ecaflip class!
 
 🌀 Selatropes (F1):
 Masters of portals and space-bending magic.
@@ -126,6 +127,26 @@ Bombs connect with visible wires (Tier 1 → 2 and Tier 2 → 3 only).
 Enemies touching wires take constant damage.
 
 Cables are animated and react visually.
+
+🎲 New Class: Ecaflip (F5)
+A new class joins the fray, bringing chaos and luck to the battlefield! The Ecaflip is a master of chance, where every move can lead to incredible fortune or a fun setback. Their playstyle is unpredictable and focuses on empowering their abilities through luck and risk.
+Core Mechanic: All or Nothing!
+Passive - Ecaflip's Luck: Every hit is a gamble! All damage you deal (attacks, minions, projectiles) is multiplied by a random value between -20% and +25%, making every attack an exciting surprise.
+Abilities (Mod Hotkeys):
+Ability 1 (V): Summon / Command Kitten
+First Use: Summons your trusty Ecaflip Kitten. This loyal companion will fight by your side, dealing consistent damage based on a small percentage of the enemy's max health.
+Subsequent Use: Commands your Kitten to unleash its "Feline Frenzy". For 2 seconds, the Kitten enters a frenzy, rapidly attacking all enemies around it with area-of-effect damage. Perfect for clearing out groups of foes! (Has a 3-second cooldown).
+Ability 2 (X): Roll the Die!
+Roll the mighty Ecaflip Die to unleash one of six random effects that can turn the tide of battle. This ability has a 1-minute cooldown.
+Results 1, 2, & 3 (Good Luck):
+[1] Minor Heal: You recover 30% of your max health, 50% of your max mana, and gain the Ironskin buff for 30 seconds.
+[2] Offensive Blessing: You receive a burst of offensive buffs for all playstyles (Melee, Ranged, Magic) and movement speed for 30 seconds.
+[3] Lucky Bomb: Triggers a medium-sized explosion at the die's location, damaging nearby enemies for 10-30% of their max health.
+Results 4, 5, & 6 (Jackpot!):
+[4] Divine Heal: You recover 100% of your max health and mana, and gain both the Ironskin and Endurance buffs for 10 minutes. A true lifesaver in critical moments!
+[5] Gambler's Fury: You receive all the offensive buffs from the minor blessing, but they last for 10 minutes. Additionally, you gain the Ammo Reservation, Regeneration, and Mana Regeneration buffs.
+[6] Kama-alanche! Unleashes a massive screen-wide explosion that damages all enemies for 30-50% of their max health. As a reward for your incredible luck, it also spawns 10 gold coins!
+Get ready to embrace randomness and may fortune always be on your side with the Ecaflip
 
 ✨ Core Mod Systems:
 Choose your class at the start (F1 = Selatrop, F2 = Yopuka, F3 = Steamer, F4 = Rogue, F5 Zurcarac).

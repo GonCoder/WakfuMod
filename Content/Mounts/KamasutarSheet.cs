@@ -17,6 +17,33 @@ namespace WakfuMod.Content.Mounts
         // --- Propiedad para la Textura Principal ---
         // public override string Texture => "WakfuMod/Assets/Mounts/KamasutarSheet"; // Ruta a TU textura, SIN .png
 
+        // --- CONSTANTES DE EXCAVACIÓN ---
+        private const int DigDelayTicks = 60; // 1 segundo de espera para el PRIMER cavado
+        private const int ContinuousDigDelayTicks = 18; // 0.3 segundos (18 ticks) para cavados siguientes
+        private const int DigUpwardsBoostTicks = 30; // 0.5 segundos de impulso después de cavar
+        private const int DigWidth = 4; // Ancho de excavación horizontal (en tiles)
+        private const int DigHeight = 4; // Alto de excavación horizontal (en tiles)
+        private const int DigDownDepth = 6; // Profundidad de excavación hacia abajo (en tiles)
+
+
+        // --- VARIABLES DE ESTADO PARA EXCAVACIÓN ---
+        // Necesitamos almacenar estos datos por jugador, así que usamos _mountSpecificData
+        protected class KamasutarData
+        {
+            public int HorizontalStuckTimer = 0;
+            public int DownStuckTimer = 0;
+            public int UpStuckTimer = 0; // NUEVO: Timer para cavar hacia arriba
+            public int UpwardsBoostTimer = 0; // NUEVO: Timer para el impulso vertical
+            public int UpHoldTimer = 0; // NUEVO: Contador para cuánto tiempo se mantiene W
+        }
+
+        public override void SetMount(Player player, ref bool skipDust)
+        {
+            // Inicializar los datos específicos de esta montura para este jugador
+            player.mount._mountSpecificData = new KamasutarData();
+
+        }
+
         public override void SetStaticDefaults()
         {
             MountData.buff = ModContent.BuffType<KamasutarMountBuff>();
@@ -72,7 +99,133 @@ namespace WakfuMod.Content.Mounts
 
         public override void UpdateEffects(Player player)
         {
-            player.statDefense += 20; // --- AÑADIDA DEFENSA --- (Ajusta el valor)
+            player.statDefense += 80; // --- AÑADIDA DEFENSA --- (Ajusta el valor)
+
+            if (player.mount._mountSpecificData is not KamasutarData data)
+            {
+                bool dummySkipDust = false;
+                SetMount(player, ref dummySkipDust);
+                return;
+            }
+
+            bool isOnGround = player.velocity.Y == 0f;
+
+            // --- DETECCIÓN DE ATASCO (para A, S, D, W) ---
+
+            // Horizontal (A/D)
+            bool stuckHorizontally = Math.Abs(player.velocity.X) < 0.1f && (player.controlLeft || player.controlRight) && isOnGround;
+            if (stuckHorizontally) data.HorizontalStuckTimer++; else data.HorizontalStuckTimer = 0;
+
+            // Hacia Abajo (S)
+            bool tryingToDigDown = player.controlDown && isOnGround;
+            if (tryingToDigDown) data.DownStuckTimer++; else data.DownStuckTimer = 0;
+
+            // 1. Gestionar el temporizador de mantener "W"
+            if (player.controlUp)
+            {
+                data.UpHoldTimer++; // Incrementar mientras se mantiene W
+            }
+            else
+            {
+                data.UpHoldTimer = 0; // Resetear si se suelta W
+            }
+
+            // 2. Determinar si se debe intentar cavar
+            bool tryDiggingUp = false;
+            // Si es la primera vez (timer llega a 60)
+            if (data.UpHoldTimer == DigDelayTicks)
+            {
+                tryDiggingUp = true;
+            }
+            // Si ya pasó el primer segundo Y han pasado 0.3 segundos desde el último intento
+            else if (data.UpHoldTimer > DigDelayTicks && (data.UpHoldTimer - DigDelayTicks) % ContinuousDigDelayTicks == 0)
+            {
+                tryDiggingUp = true;
+            }
+
+            // 3. Ejecutar la excavación si corresponde
+            if (tryDiggingUp)
+            {
+                bool blockWasDug = false; // Flag para saber si se rompió al menos un bloque
+
+                // Definir el área de excavación por encima de la montura
+                Rectangle mountHitbox = player.getRect();
+                mountHitbox.Y += player.height - MountData.heightBoost;
+                Point startTile = new Vector2(mountHitbox.X, mountHitbox.Y).ToTileCoordinates();
+                int areaWidth = (int)Math.Ceiling(mountHitbox.Width / 16f) + 1;
+
+                // Excavar un área de 2 tiles de alto
+                for (int y = 1; y <= 6; y++)
+                {
+                    for (int x = 0; x < areaWidth; x++)
+                    {
+                        int tileX = startTile.X - 1 + x; // Centrar un poco mejor el área de excavación
+                        int tileY = startTile.Y - y;
+
+                        // TryDigTile ahora necesita devolver si tuvo éxito
+                        if (TryDigTile(tileX, tileY, player))
+                        {
+                            blockWasDug = true; // Marcar que se cavó algo
+                        }
+                    }
+                }
+
+                // 4. Aplicar el impulso vertical SOLO SI se cavó un bloque
+                if (blockWasDug)
+                {
+                    data.UpwardsBoostTimer = DigUpwardsBoostTicks; // Activar el impulso
+                }
+            }
+
+
+            // 5. Lógica de Impulso Vertical (como antes, pero el timer se activa de forma diferente)
+            if (data.UpwardsBoostTimer > 0)
+            {
+                // Aplicar impulso solo si se mantiene W
+                if (player.controlUp)
+                {
+                    player.velocity.Y = -MountData.jumpSpeed * 0.9f; // Impulso constante
+                    player.fallStart = (int)(player.position.Y / 16f); // Resetear daño por caída
+                }
+                data.UpwardsBoostTimer--; // Decrementar el timer del impulso
+            }
+
+
+            // --- Ejecutar Excavación ---
+
+            // Cavar Horizontalmente (A o D)
+            if (data.HorizontalStuckTimer >= DigDelayTicks)
+            {
+                int direction = player.controlRight ? 1 : -1;
+                Point startTile = (player.Center + new Vector2(direction * (player.width / 2f + 8f), 0)).ToTileCoordinates();
+
+                for (int x = 0; x < DigWidth; x++)
+                {
+                    for (int y = 0; y < DigHeight; y++)
+                    {
+                        int tileX = startTile.X + (x * direction);
+                        int tileY = startTile.Y - (DigHeight / 2) + y;
+                        TryDigTile(tileX, tileY, player);
+                    }
+                }
+                data.HorizontalStuckTimer = 0;
+            }
+
+            // Cavar hacia Abajo (S) - CORREGIDO
+            if (data.DownStuckTimer >= DigDelayTicks)
+            {
+                Point startTile = player.Bottom.ToTileCoordinates();
+                // Empezar a cavar desde y=0 (el tile justo debajo)
+                for (int y = 0; y <= DigDownDepth; y++)
+                {
+                    int tileY = startTile.Y + y;
+                    TryDigTile(startTile.X - 1, tileY, player);
+                    TryDigTile(startTile.X, tileY, player);
+                    TryDigTile(startTile.X + 1, tileY, player);
+                }
+                data.DownStuckTimer = 0;
+                player.fallStart = (int)(player.position.Y / 16f);
+            }
 
             // Ejemplo de polvo al correr (adaptado del ExampleMount)
             if (Math.Abs(player.velocity.X) > MountData.runSpeed * 0.5f)
@@ -88,71 +241,68 @@ namespace WakfuMod.Content.Mounts
             }
         }
 
-        //     // --- MÉTODO DRAW PARA FORZAR EL DIBUJADO DE LA TEXTURA PRINCIPAL ---
-        //     public override bool Draw(List<DrawData> playerDrawData, int drawType, Player drawPlayer,
-        //                     ref Texture2D texture, ref Texture2D glowTexture, ref Vector2 drawPosition,
-        //                     ref Rectangle frame, ref Color drawColor, ref Color glowColor,
-        //                     ref float rotation, ref SpriteEffects spriteEffects, ref Vector2 drawOrigin,
-        //                     ref float drawScale, float shadow)
-        //     {
-        //         // El sistema vanilla DEBERÍA haberte pasado tu textura principal en el parámetro 'texture'
-        //         // y el 'frame' (sourceRectangle) correcto para el frame de animación actual de la montura.
-        //         // 'drawPosition' es donde se va a dibujar el JUGADOR.
+        // --- FIRMA MODIFICADA: Añadir 'Player player' ---
+        private bool TryDigTile(int x, int y, Player player)
+        {
+            if (!WorldGen.InWorld(x, y, 1)) return false; // No se cavó
+            Tile tile = Framing.GetTileSafely(x, y);
 
-        //         // Si 'texture' es null o es una dummy texture, la carga automática falló.
-        //         if (texture == null || texture.Name.Contains("Dummy"))
-        //         {
-        //             // Intenta cargarla explícitamente como fallback
-        //             Asset<Texture2D> explicitAsset = ModContent.Request<Texture2D>(this.Texture);
-        //             if (explicitAsset.IsLoaded)
-        //             {
-        //                 texture = explicitAsset.Value;
-        //             }
-        //             else
-        //             {
-        //                 Mod.Logger.Warn($"Draw: Main mount texture for {Name} is STILL null or dummy, and explicit load failed. Cannot draw.");
-        //                 return true; // No podemos dibujar, dejar que el sistema lo intente (aunque probablemente falle)
-        //             }
-        //         }
+            if (tile.HasTile)
+            {
+                // ... (la lógica 'isDiggable' e 'isProtected' sin cambios) ...
+                bool isDiggable = TileID.Sets.Conversion.Dirt[tile.TileType] ||
+                                   TileID.Sets.Conversion.Sand[tile.TileType] ||
+                                   TileID.Sets.Conversion.Snow[tile.TileType] ||
+                                   TileID.Sets.Mud[tile.TileType] ||
+                                   TileID.Sets.Stone[tile.TileType] ||
+                                   tile.TileType == TileID.Ash ||
+                                   tile.TileType == TileID.Silt ||
+                                   tile.TileType == TileID.Slush ||
+                                   tile.TileType == TileID.ClayBlock ||
+                                   tile.TileType == TileID.Grass;
 
-        //         // Si llegamos aquí, 'texture' debería ser tu spritesheet de montura.
-        //         // 'frame' debería ser el sourceRectangle correcto para el frame actual de la montura.
-        //         // 'drawPosition' es el punto de anclaje para el DIBUJADO DEL JUGADOR.
+                bool isProtected = Main.tileDungeon[tile.TileType] ||
+                                   tile.TileType == TileID.LihzahrdBrick ||
+                                   TileID.Sets.Ore[tile.TileType];
 
-        //         // Origen de la montura: Centro X, Base Y del FRAME de la montura.
-        //         // Usamos MountData.textureWidth y MountData.textureHeight porque deberían estar correctamente
-        //         // calculados en SetStaticDefaults para representar las dimensiones de UN SOLO frame.
-        //         Vector2 mountOrigin = new Vector2(MountData.textureWidth / 2f, MountData.textureHeight);
+                if (isDiggable && !isProtected)
+                {
+                    // Guardar poder de pico original y establecer uno temporal muy alto
+                    int originalPickPower = player.HeldItem.pick;
+                    player.HeldItem.pick = 250; // Poder suficiente para casi todo lo excavable
 
-        //         // Posición de dibujado de la montura:
-        //         // Queremos que el 'mountOrigin' (pies/base de la montura) se alinee con
-        //         // la posición donde se dibuja el jugador ('drawPosition'), pero ajustado para que
-        //         // la montura quede debajo del jugador.
-        //         // 'drawPosition' ya incluye los playerYOffsets.
-        //         // Si nuestro origen es la base de la montura, y drawPosition es donde deberían estar los pies del jugador,
-        //         // entonces están casi alineados. Se pueden hacer pequeños ajustes.
-        //         Vector2 finalDrawPosition = drawPosition;
-        //         // finalDrawPosition.Y += algunos_pixeles; // Si necesitas bajar más la montura
-        //         // finalDrawPosition.X += algunos_pixeles; // Si necesitas moverla horizontalmente
+                    // --- CORREGIDO: Ahora 'player' existe en este contexto ---
+                    player.PickTile(x, y, player.HeldItem.pick); // Usar PickTile es más directo que HitThings
 
-        //         spriteEffects = drawPlayer.direction == -1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+                    // Restaurar poder de pico
+                    player.HeldItem.pick = originalPickPower;
 
-        //         playerDrawData.Add(new DrawData(
-        //             texture,           // La textura principal de la montura
-        //             finalDrawPosition,
-        //             frame,             // El sourceRectangle del frame actual de la montura, pasado por el juego
-        //             drawColor,
-        //             rotation,          // La rotación calculada por el juego
-        //             mountOrigin,       // Nuestro origen para el sprite de la montura
-        //             drawScale,         // La escala calculada por el juego
-        //             spriteEffects,
-        //             0f
-        //         ));
+                    // --- Alternativa: WorldGen.KillTile sigue siendo una opción si PickTile da problemas ---
+                    WorldGen.KillTile(x, y, false, false, false);
+                    // Si WorldGen.KillTile no funcionaba con hierba, PickTile debería hacerlo.
 
-        //         // Mod.Logger.Info($"Added DrawData for {Name}. Type: {drawType}, Tex: {texture.Name}, Pos: {finalDrawPosition}, Frame: {frame}, Origin: {mountOrigin}");
+                    // Sincronización
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        NetMessage.SendTileSquare(-1, x, y, 1);
+                    }
 
-        //         return false; // Hemos dibujado la textura principal de la montura, no dejar que Terraria lo intente.
-        //     }
+                    // Efecto de polvo (opcional, PickTile ya puede crear algunos)
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Dust.NewDust(new Vector2(x * 16, y * 16), 16, 16, DustID.Stone);
+                    }
+                    // Devolver 'true' porque se rompió un bloque
+                    return true;
+                }
+            }
 
+            // Devolver 'false' si no había tile, o no era excavable, o estaba protegido
+            return false;
+        }
     }
 }
+
+
+
+
