@@ -113,6 +113,11 @@ Items: {
 		DisplayName: Kamasutar Mount
 		Tooltip: ""
 	}
+
+	NoxSpawner: {
+		DisplayName: Nox Spawner
+		Tooltip: ""
+	}
 }
 
 Buffs: {
@@ -145,4 +150,9 @@ Buffs: {
 Tiles: {
 	GoalTileBlue.MapEntry: Goal Tile Blue
 	GoalTileRed.MapEntry: Goal Tile Red
+}
+
+NPCs: {
+	Nox.DisplayName: Nox
+	Noxine.DisplayName: Noxine
 }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WakfuMod")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+16b2681c38995ad7eda05e8f51e76e16c0e66094")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9870a35584808e9856408f9b72bdb8e3416d6b7c")]
 [assembly: System.Reflection.AssemblyProductAttribute("WakfuMod")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WakfuMod")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
