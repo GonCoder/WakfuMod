@@ -21,13 +21,18 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
         private const int Frame_Idle = 0;
         private const int Frame_Blink_Start = 1;
         private const int Total_Blink_Frames = 3;
-        private const int Total_Frames_In_Sheet = 4; // Total de frames (0-3)
+        private const int Total_Frames_In_Sheet = 5; // Total de frames
         private const int BlinkAnimSpeed = 5; // Ticks por cada frame de la animación de blink
 
         // --- Constantes de Combate ---
         private const int OrbitalNoxineCount = 12;
         private const int AttackerNoxineCountPerPlayer = 4;
         private const int BlinkFadeTime = 20; // Ticks para desvanecerse/aparecer
+
+        // --- Constantes de Animación ---
+        private const int Frame_Transition_Start = 4; // Asume que el frame 4 es para la transición
+        private const int Total_Transition_Frames = 1; // Por ahora solo un frame
+        private const int Transition_Anim_Duration = 120; // 2 segundos de animación
 
         // --- Variables de IA ---
         // ai[0]: Temporizador general para el estado actual (ej. cuánto tiempo lleva en Idle)
@@ -40,7 +45,8 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             Idle,
             StartBlink,
             EndBlink,
-            Attacking
+            Attacking,
+            PhaseTransition // <-- NUEVO ESTADO
         }
 
         public override void SetStaticDefaults()
@@ -73,7 +79,6 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
         public override void AI()
         {
-            // --- Comprobación de Jugador y Despawn ---
             if (NPC.target < 0 || NPC.target == 255 || Main.player[NPC.target].dead || !Main.player[NPC.target].active)
             {
                 NPC.TargetClosest(true);
@@ -81,24 +86,33 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             Player player = Main.player[NPC.target];
             if (player.dead)
             {
-                NPC.velocity.Y += 0.1f; // Cae lentamente
+                NPC.velocity.Y += 0.1f;
                 if (NPC.timeLeft > 10) NPC.timeLeft = 10;
                 return;
             }
 
-            // --- Transición a Fase 2 ---
+            // --- Lógica de Transición de Fase ---
+            // Primero, comprobar si está en transición, ya que esto tiene la máxima prioridad
+            if ((AI_State)NPC.ai[1] == AI_State.PhaseTransition)
+            {
+                PhaseTransition(player);
+                return; // Salir de la AI para no ejecutar otra lógica
+            }
+
+            // Después, comprobar si DEBE entrar en transición
             bool isPhase2 = (float)NPC.life / NPC.lifeMax <= 0.5f;
             if (isPhase2 && NPC.ai[2] == 0)
             {
                 NPC.ai[2] = 1; // Marcar como Fase 2
                 NPC.ai[0] = 0; // Resetear timer de acción
-                NPC.ai[1] = (float)AI_State.StartBlink; // Forzar un blink agresivo
-                SoundEngine.PlaySound(SoundID.Roar, NPC.Center);
-                Main.NewText("Nox: ¡Más energía! ¡MÁS TIEMPO!", new Color(0, 200, 255));
+                NPC.ai[1] = (float)AI_State.PhaseTransition; // <-- CAMBIAR A NUEVO ESTADO
+                NPC.ai[3] = 0;
+                NPC.velocity = Vector2.Zero;
                 NPC.netUpdate = true;
+                return; // Salir de la AI este frame para empezar la transición limpiamente
             }
 
-            // --- Máquina de Estados de la IA ---
+            // --- Máquina de Estados Normal ---
             switch ((AI_State)NPC.ai[1])
             {
                 case AI_State.Idle:
@@ -114,7 +128,6 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                     Attacking(player, isPhase2);
                     break;
                 default:
-                    // Si el estado es inválido por alguna razón, empezar el ciclo de nuevo
                     NPC.ai[1] = (float)AI_State.Idle;
                     break;
             }
@@ -279,15 +292,59 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             NPC.netUpdate = true;
         }
 
+        // --- NUEVO MÉTODO DE IA: PhaseTransition ---
+        private void PhaseTransition(Player player)
+        {
+            NPC.dontTakeDamage = true; // Hacerlo invulnerable
+            NPC.velocity = Vector2.Zero; // Asegurar que no se mueva
+
+            NPC.ai[0]++; // Usar ai[0] como timer para la duración de la animación
+
+            // Efectos visuales/sonoros de la transición
+            if (NPC.ai[0] == 1)
+            {
+                SoundEngine.PlaySound(SoundID.Roar, NPC.Center);
+                Main.NewText("Nox: ¡La energía del Eliacubo es mía! ¡El tiempo se doblega ante mí!", new Color(0, 200, 255));
+            }
+            if (NPC.ai[0] % 5 == 0)
+            { // Efecto de polvo constante
+                Dust.NewDust(NPC.position, NPC.width, NPC.height, DustID.MagicMirror, 0, 0, 150, Color.Cyan, 1.5f);
+            }
+
+            // Cuando la animación de transición termina
+            if (NPC.ai[0] >= Transition_Anim_Duration)
+            {
+                // Terminar la transición
+                NPC.dontTakeDamage = false; // Hacerlo vulnerable de nuevo
+                NPC.ai[0] = 0; // Resetear timer para la siguiente acción
+                NPC.ai[1] = (float)AI_State.StartBlink; // Forzar un blink después de la transición
+                NPC.netUpdate = true;
+
+                // --- ACTIVAR RALENTIZACIÓN DE TIEMPO ---
+                // Solo el servidor/singleplayer debe iniciar este evento global.
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    // Llama al sistema que controla la ralentización del tiempo
+                    ModContent.GetInstance<TimeSlowSystem>().Activate(20 * 60); // Activar por 20 segundos
+                    Main.NewText("[Nox] Llamando a TimeSlowSystem.Activate()", Color.CornflowerBlue);
+
+                }
+            }
+        }
+
         public override void FindFrame(int frameHeight)
         {
             AI_State currentState = (AI_State)NPC.ai[1];
 
             switch (currentState)
             {
+                // --- AÑADIR CASO PARA LA TRANSICIÓN ---
+                case AI_State.PhaseTransition:
+                    NPC.frame.Y = Frame_Transition_Start * frameHeight;
+                    break;
+
                 case AI_State.StartBlink:
                 case AI_State.EndBlink:
-                    // Animación de "glitch"
                     int blinkFrameIndex = (int)(NPC.ai[3] / BlinkAnimSpeed);
                     if (blinkFrameIndex >= Total_Blink_Frames)
                     {
@@ -299,7 +356,6 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                 case AI_State.Attacking:
                 case AI_State.Idle:
                 default:
-                    // Animación de Idle
                     NPC.frame.Y = Frame_Idle * frameHeight;
                     break;
             }

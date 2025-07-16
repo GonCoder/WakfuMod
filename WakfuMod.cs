@@ -5,7 +5,10 @@ using System.IO; // Para BinaryReader
 using Terraria; // Para Main
 using Terraria.ID; // Para NetmodeID
 using WakfuMod.Content.Backgrounds;
-using Microsoft.Xna.Framework; // Necesario para acceder a MyForestBackgroundStyle
+using Microsoft.Xna.Framework;
+using WakfuMod.Content.Items.BossSpawners;
+using Terraria.Graphics.Effects;
+using Terraria.Graphics.Shaders; // Necesario para acceder a MyForestBackgroundStyle
 
 
 namespace WakfuMod
@@ -19,6 +22,16 @@ namespace WakfuMod
         {
             Habilidad1Keybind = KeybindLoader.RegisterKeybind(this, "Skill 1 Wakfu", "V");
             Habilidad2Keybind = KeybindLoader.RegisterKeybind(this, "Skill 2 Wakfu", "X");
+
+             if (!Main.dedServ)
+            {
+                // Usar un nombre único para nuestro filtro para evitar conflictos
+                string filterName = "WakfuMod:NoxShockwave";
+
+                // Registrar nuestro filtro de shader en el juego
+                Filters.Scene[filterName] = new Filter(new ScreenShaderData("FilterMiniTower"), EffectPriority.VeryHigh);
+                Filters.Scene[filterName].Load(); // Cargar explícitamente
+            }
 
         }
 
@@ -34,7 +47,9 @@ namespace WakfuMod
         {
             PlayerTeamChange,
             ScoreUpdate,
-            ZurcarakDieEffect
+            ZurcarakDieEffect,
+            SpawnNoxBoss,
+            TimeSlow
             // Añade aquí otros tipos de mensajes de red que necesites para otras cosas
         }
 
@@ -85,6 +100,30 @@ namespace WakfuMod
                         byte dieResult = reader.ReadByte();
                         // Aplicar los efectos localmente (buffs, curación, efectos visuales)
                         ZurcarakEffectSystem.ApplyEffects(Main.player[playerID], position, dieResult);
+                    }
+                    break;
+
+                case MessageType.SpawnNoxBoss:
+                    // Este paquete solo debería ser recibido por el servidor desde un cliente.
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        // 'whoAmI' es el índice del jugador que envió el paquete.
+                        Player player = Main.player[whoAmI];
+                        // Llamar al método de invocación en el servidor,
+                        // que se encargará de crear el NPC y sincronizarlo.
+                        NoxSpawner.SpawnNox(player);
+                    }
+                    break;
+
+                // --- NUEVO CASE PARA LA RALENTIZACIÓN ---
+                case MessageType.TimeSlow:
+                    // Este paquete solo lo reciben los clientes desde el servidor.
+                    // El servidor NUNCA debería recibir este paquete.
+                    if (Main.netMode == NetmodeID.MultiplayerClient)
+                    {
+                        int duration = reader.ReadInt32(); // Leer la duración
+                        // Llamar a un método en el sistema para activar el efecto localmente
+                        ModContent.GetInstance<ModSystems.TimeSlowSystem>().ReceiveActivationPacket(duration);
                     }
                     break;
 

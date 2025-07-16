@@ -33,27 +33,46 @@ namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
             return !NPC.AnyNPCs(ModContent.NPCType<Nox>());
         }
 
-        public override bool? UseItem(Player player)
+         public override bool? UseItem(Player player)
         {
-            // Solo invocar si no es un cliente en multijugador
-            if (player.whoAmI == Main.myPlayer && Main.netMode != NetmodeID.MultiplayerClient)
+            // La condición ahora es diferente
+            if (Main.netMode == NetmodeID.MultiplayerClient)
             {
-                // Sonido de invocación
-                SoundEngine.PlaySound(SoundID.Roar, player.position);
+                // --- SI ES UN CLIENTE EN MULTIJUGADOR ---
+                // No invocar al jefe directamente. Enviar un paquete al servidor.
+                ModPacket packet = Mod.GetPacket();
+                packet.Write((byte)WakfuMod.MessageType.SpawnNoxBoss); // Necesitaremos añadir este tipo de mensaje
+                // No necesitamos enviar más datos, el servidor sabe quién lo envió (whoAmI)
+                packet.Send();
+            }
+            else // Si es Single Player o el Servidor/Host
+            {
+                // --- LÓGICA DE INVOCACIÓN DIRECTA ---
+                SpawnNox(player);
+            }
 
-                // Posición de spawn: encima del jugador
-                Vector2 spawnPos = player.Center + new Vector2(0, -300f);
+            return true;
+        }
 
-                // Invocar al jefe
-                int npcIndex = NPC.NewNPC(player.GetSource_ItemUse(Item), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
+        // Método helper para no repetir código
+        public static void SpawnNox(Player player)
+        {
+            // Asegurarse de que el jefe no esté ya activo
+            if (NPC.AnyNPCs(ModContent.NPCType<Nox>())) {
+                return;
+            }
 
-                // Sincronizar en multijugador
-                if (Main.netMode == NetmodeID.Server)
-                {
+            SoundEngine.PlaySound(SoundID.Roar, player.position);
+            Vector2 spawnPos = player.Center + new Vector2(0, -300f);
+
+            if (Main.netMode != NetmodeID.MultiplayerClient) // Solo el servidor/singleplayer realmente spawnea
+            {
+                int npcIndex = NPC.NewNPC(player.GetSource_ItemUse(player.HeldItem), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
+                
+                if (Main.netMode == NetmodeID.Server) {
                     NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
                 }
             }
-            return true;
         }
 
         // Opcional: Receta para crear el item
