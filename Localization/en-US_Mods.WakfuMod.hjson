@@ -36,6 +36,8 @@ Projectiles: {
 	RedKickProjectile.DisplayName: Red Kick Projectile
 	JuniorPetProjectile.DisplayName: Junior Pet Projectile
 	DieExplosion.DisplayName: Die Explosion
+	NoxTimeRift.DisplayName: Nox Time Rift
+	LancerStab.DisplayName: Lancer Stab
 }
 
 Items: {
@@ -155,4 +157,5 @@ Tiles: {
 NPCs: {
 	Nox.DisplayName: Nox
 	Noxine.DisplayName: Noxine
+	Whisperer.DisplayName: Whisperer
 }

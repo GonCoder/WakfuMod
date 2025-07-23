@@ -40,8 +40,8 @@ namespace WakfuMod.Content.Projectiles
             Projectile.penetrate = -1;
             Projectile.timeLeft = 1200;
             Projectile.DamageType = DamageClass.Melee;
-            
-            // DrawOriginOffsetY = -160; // Lo manejaremos en PreDraw
+            Projectile.netImportant = true; // --- AÑADIDO: Importante para proyectiles de jefe/habilidades complejas ---
+                                       
 
             // --- AÑADIDO: Inmunidad Local ---
             Projectile.usesLocalNPCImmunity = true;
@@ -72,9 +72,9 @@ namespace WakfuMod.Content.Projectiles
 
             // --- Establecer velocidad inicial basada en ai[1] (Dirección) ---
             // Es importante que la velocidad se establezca correctamente al spawnear
-             int direction = (int)Projectile.ai[1]; // Obtener dirección de ai[1]
-             Projectile.velocity.X = expansionSpeed * direction; // Establecer velocidad X inicial
-             Projectile.velocity.Y = 0f; // Asegurarse de que no tiene velocidad Y inicial
+            int direction = (int)Projectile.ai[1]; // Obtener dirección de ai[1]
+            Projectile.velocity.X = expansionSpeed * direction; // Establecer velocidad X inicial
+            Projectile.velocity.Y = 0f; // Asegurarse de que no tiene velocidad Y inicial
         }
 
         public override void AI()
@@ -89,32 +89,36 @@ namespace WakfuMod.Content.Projectiles
             Point below = Projectile.Bottom.ToTileCoordinates();
             if (WorldGen.SolidTile(below.X, below.Y) /*|| WorldGen.SolidTile(below.X + 1, below.Y)*/) // Comprobar solo bajo el centro? O ambos? Ajusta si es necesario
             {
-                 // Sube si está enterrado (o justo en el tile)
-                 while (WorldGen.SolidTile(below.X, below.Y) /*|| WorldGen.SolidTile(below.X + 1, below.Y)*/) {
+                // Sube si está enterrado (o justo en el tile)
+                while (WorldGen.SolidTile(below.X, below.Y) /*|| WorldGen.SolidTile(below.X + 1, below.Y)*/)
+                {
                     Projectile.position.Y -= 1;
                     below = Projectile.Bottom.ToTileCoordinates();
                     if (Projectile.position.Y < 16) break; // Evitar salir del mundo hacia arriba
-                 }
-                 // Asegurarse de que la velocidad Y es 0 después de ajustar
-                 Projectile.velocity.Y = 0f;
-            } else {
-                 // Baja si está flotando
-                 // Comprobar el tile Y+1
-                 while (!WorldGen.SolidTile(below.X, below.Y + 1) /*&& !WorldGen.SolidTile(below.X + 1, below.Y + 1)*/) {
-                     Projectile.position.Y += 1;
-                     below = Projectile.Bottom.ToTileCoordinates();
-                     // Condición de salida si cae demasiado (evita caer fuera del mundo)
-                     if (Projectile.position.Y > Main.maxTilesY * 16 - Projectile.height - 16) break;
-                     // Condición de salida por si la lógica falla (evita bucle infinito)
-                     if (Projectile.position.Y > Main.screenPosition.Y + Main.screenHeight + 200) break;
-                 }
-                 // Podríamos añadir una pequeña velocidad de caída si sigue flotando después de esto,
-                 // pero tu while debería colocarlo justo encima del suelo.
-                 // Si sigue flotando, es que no hay suelo debajo en muchos tiles.
-                 // Ajuste final para asegurar que esté exactamente encima
-                  Point finalBelow = Projectile.Bottom.ToTileCoordinates();
-                  Projectile.position.Y = (finalBelow.Y + 1) * 16f - Projectile.height;
-                  Projectile.velocity.Y = 0f; // Detener velocidad Y
+                }
+                // Asegurarse de que la velocidad Y es 0 después de ajustar
+                Projectile.velocity.Y = 0f;
+            }
+            else
+            {
+                // Baja si está flotando
+                // Comprobar el tile Y+1
+                while (!WorldGen.SolidTile(below.X, below.Y + 1) /*&& !WorldGen.SolidTile(below.X + 1, below.Y + 1)*/)
+                {
+                    Projectile.position.Y += 1;
+                    below = Projectile.Bottom.ToTileCoordinates();
+                    // Condición de salida si cae demasiado (evita caer fuera del mundo)
+                    if (Projectile.position.Y > Main.maxTilesY * 16 - Projectile.height - 16) break;
+                    // Condición de salida por si la lógica falla (evita bucle infinito)
+                    if (Projectile.position.Y > Main.screenPosition.Y + Main.screenHeight + 200) break;
+                }
+                // Podríamos añadir una pequeña velocidad de caída si sigue flotando después de esto,
+                // pero tu while debería colocarlo justo encima del suelo.
+                // Si sigue flotando, es que no hay suelo debajo en muchos tiles.
+                // Ajuste final para asegurar que esté exactamente encima
+                Point finalBelow = Projectile.Bottom.ToTileCoordinates();
+                Projectile.position.Y = (finalBelow.Y + 1) * 16f - Projectile.height;
+                Projectile.velocity.Y = 0f; // Detener velocidad Y
             }
 
             // --- Tu Animación Original ---
@@ -128,7 +132,7 @@ namespace WakfuMod.Content.Projectiles
             // --- Movimiento Lateral y Distancia (Usando Velocity) ---
             // La velocidad X ya se estableció en OnSpawn y se mantiene
             // Terraria actualiza Projectile.position basado en Projectile.velocity automáticamente.
-             traveledDistance += Math.Abs(Projectile.velocity.X); // Acumular distancia basada en velocidad X
+            traveledDistance += Math.Abs(Projectile.velocity.X); // Acumular distancia basada en velocidad X
 
             // --- Comprobación de Distancia Máxima ---
             if (traveledDistance >= maxDistance)
@@ -161,7 +165,7 @@ namespace WakfuMod.Content.Projectiles
 
             // Aplicar tu knockback original
             modifiers.Knockback.Base = 1f * rageLevel; // Usar .Base para establecerlo directamente
-              // 1. Calcula el 2% de la vida máxima del NPC objetivo
+                                                       // 1. Calcula el 2% de la vida máxima del NPC objetivo
             float percentDamage = target.lifeMax * 0.02f;
 
             // 2. Añade este daño como un bonus plano
@@ -181,11 +185,13 @@ namespace WakfuMod.Content.Projectiles
             // }
 
             // O simplemente añadir efectos visuales
-             if (Main.netMode != NetmodeID.Server) {
-                 for(int i=0; i<5; i++) {
-                     Dust.NewDust(target.position, target.width, target.height, DustID.OrangeTorch, hit.HitDirection * 2f, -1f, 100, default, 1.2f);
-                 }
-             }
+            if (Main.netMode != NetmodeID.Server)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    Dust.NewDust(target.position, target.width, target.height, DustID.OrangeTorch, hit.HitDirection * 2f, -1f, 100, default, 1.2f);
+                }
+            }
         }
 
         // --- Tu PreDraw Original (Asegúrate que la ruta es correcta) ---

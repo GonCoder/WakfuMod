@@ -33,7 +33,7 @@ namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
             return !NPC.AnyNPCs(ModContent.NPCType<Nox>());
         }
 
-         public override bool? UseItem(Player player)
+        public override bool? UseItem(Player player)
         {
             // La condición ahora es diferente
             if (Main.netMode == NetmodeID.MultiplayerClient)
@@ -56,24 +56,37 @@ namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
 
         // Método helper para no repetir código
         public static void SpawnNox(Player player)
-        {
-            // Asegurarse de que el jefe no esté ya activo
-            if (NPC.AnyNPCs(ModContent.NPCType<Nox>())) {
-                return;
-            }
+{
+    // Asegurarse de que el jefe no esté ya activo
+    if (NPC.AnyNPCs(ModContent.NPCType<Nox>()))
+    {
+        return;
+    }
 
-            SoundEngine.PlaySound(SoundID.Roar, player.position);
-            Vector2 spawnPos = player.Center + new Vector2(0, -300f);
+    // --- Tus mensajes y sonidos se mantienen intactos ---
+    SoundEngine.PlaySound(SoundID.Roar, player.position);
+    Main.NewText("I'll fix my life's clock!", new Color(0, 200, 255));
+    Main.NewText("It's time to go home HAHAHA!", new Color(0, 200, 255));
+    Vector2 spawnPos = player.Center + new Vector2(0, -300f);
 
-            if (Main.netMode != NetmodeID.MultiplayerClient) // Solo el servidor/singleplayer realmente spawnea
-            {
-                int npcIndex = NPC.NewNPC(player.GetSource_ItemUse(player.HeldItem), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
-                
-                if (Main.netMode == NetmodeID.Server) {
-                    NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
-                }
-            }
-        }
+    if (Main.netMode != NetmodeID.MultiplayerClient) // La condición es correcta (solo SP o Servidor/Host)
+    {
+    
+        // LÍNEA NUEVA (CORRECTA Y MÁS ROBUSTA):
+        // Esta única llamada invoca al NPC y maneja la sincronización de red por sí misma.
+        NPC.NewNPC(
+            player.GetSource_ItemUse(player.HeldItem), // La fuente del evento
+            (int)spawnPos.X,                           // Posición X
+            (int)spawnPos.Y,                           // Posición Y
+            ModContent.NPCType<Nox>(),                 // El tipo de NPC a invocar
+            0,                                         // Start (whoAmI, generalmente 0 para jefes)
+            0f, 0f, 0f, 0f,                            // Valores iniciales para ai[0] a ai[3]
+            player.whoAmI                              // El objetivo inicial del NPC
+        );
+
+        // --- FIN DEL CAMBIO ---
+    }
+}
 
         // Opcional: Receta para crear el item
         public override void AddRecipes()

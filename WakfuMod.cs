@@ -49,8 +49,7 @@ namespace WakfuMod
             ScoreUpdate,
             ZurcarakDieEffect,
             SpawnNoxBoss,
-            TimeSlow
-            // Añade aquí otros tipos de mensajes de red que necesites para otras cosas
+            
         }
 
         // --- TU MÉTODO HandlePacket ---
@@ -115,17 +114,6 @@ namespace WakfuMod
                     }
                     break;
 
-                // --- NUEVO CASE PARA LA RALENTIZACIÓN ---
-                case MessageType.TimeSlow:
-                    // Este paquete solo lo reciben los clientes desde el servidor.
-                    // El servidor NUNCA debería recibir este paquete.
-                    if (Main.netMode == NetmodeID.MultiplayerClient)
-                    {
-                        int duration = reader.ReadInt32(); // Leer la duración
-                        // Llamar a un método en el sistema para activar el efecto localmente
-                        ModContent.GetInstance<ModSystems.TimeSlowSystem>().ReceiveActivationPacket(duration);
-                    }
-                    break;
 
                 // Otros cases para otros tipos de mensajes...
                 default:
