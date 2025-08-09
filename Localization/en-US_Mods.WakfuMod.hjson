@@ -38,6 +38,9 @@ Projectiles: {
 	DieExplosion.DisplayName: Die Explosion
 	NoxTimeRift.DisplayName: Nox Time Rift
 	LancerStab.DisplayName: Lancer Stab
+	WhispererArrow.DisplayName: Whisperer Arrow
+	RuelTreasureDrop.DisplayName: Ruel Treasure Drop
+	RuelCoinDrop.DisplayName: Ruel Coin Drop
 }
 
 Items: {
@@ -116,6 +119,11 @@ Items: {
 		Tooltip: ""
 	}
 
+	Kama: {
+		DisplayName: Kama
+		Tooltip: ""
+	}
+
 	NoxSpawner: {
 		DisplayName: Nox Spawner
 		Tooltip: ""
@@ -158,4 +166,27 @@ NPCs: {
 	Nox.DisplayName: Nox
 	Noxine.DisplayName: Noxine
 	Whisperer.DisplayName: Whisperer
+
+	Ruel: {
+		DisplayName: Ruel
+
+		TownNPCMood: {
+			Content: Estoy feliz.
+			NoHome: Detesto no tener un hogar.
+			FarFromHome: Estoy demasiado lejos de casa.
+			LoveSpace: Me encanta tener tanto espacio.
+			DislikeCrowded: No me gusta tener tan poco espacio.
+			HateCrowded: Detesto tener poco espacio.
+			LoveBiome: Adoro el biomedio {BiomeName}.
+			LikeBiome: Me gusta el biomedio {BiomeName}.
+			DislikeBiome: No me gusta el biomedio {BiomeName}.
+			HateBiome: Detesto el biomedio {BiomeName}.
+			LoveNPC: Adoro a {NPCName}.
+			LikeNPC: Me gusta {NPCName}.
+			DislikeNPC: "{NPCName} no me cae nada bien."
+			HateNPC: Detesto a {NPCName}.
+			LikeNPC_Princess: Me gusta {NPCName}.
+			Princess_LovesNPC: Me gusta {NPCName}.
+		}
+	}
 }

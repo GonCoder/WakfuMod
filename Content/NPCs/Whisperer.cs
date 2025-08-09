@@ -33,6 +33,15 @@ namespace WakfuMod.Content.NPCs
         private const int State_ChargingAttack = 1;
         private const int State_Attacking = 2;
 
+        private const int State_SpecialAttack = 3;
+
+        // ===== Ataque especial =====
+        private int specialAttackTimer = 0; // temporizador general
+        private int arrowCooldown = 0;      // para las flechas dentro del ataque especial
+        private int arrowsLaunched = 0;     // cuántas flechas van cayendo
+
+
+
         // ===== Configuración de escalada / salto =====
         private const int LookAheadTiles = 5;        // Aumentamos profundidad horizontal (antes 3) para anticipar pendientes más irregulares
         private const int MaxDetectTilesUp = 4;      // Escanea un tile extra hacia arriba para detectar bordes dentados
@@ -51,7 +60,7 @@ namespace WakfuMod.Content.NPCs
 
         public override void SetStaticDefaults()
         {
-            Main.npcFrameCount[Type] = 6; // 0-3 andar, 4 cargar, 5 atacar
+            Main.npcFrameCount[Type] = 10; // 0-3 andar, 4 cargar, 5 atacar
         }
 
         public override void SetDefaults()
@@ -82,7 +91,7 @@ namespace WakfuMod.Content.NPCs
         {
             if (spawnInfo.Player.ZoneForest && spawnInfo.Player.ZoneOverworldHeight && Main.dayTime)
             {
-                return SpawnCondition.OverworldDaySlime.Chance * 0.9f;
+                return SpawnCondition.OverworldDaySlime.Chance * 0.15f;
             }
             return 0f;
         }
@@ -109,6 +118,19 @@ namespace WakfuMod.Content.NPCs
                 }
             }
 
+            // === Control del ataque especial ===
+            specialAttackTimer++;
+            if (specialAttackTimer >= 480 && NPC.ai[1] == State_WanderChase)
+            {
+                // Comienza el ataque especial
+                NPC.ai[1] = State_SpecialAttack;
+                NPC.ai[0] = 0;
+                arrowsLaunched = 0;
+                arrowCooldown = 0;
+                NPC.velocity.X = 0f;
+                NPC.netUpdate = true;
+            }
+
             // Máquina de estados
             switch ((int)NPC.ai[1])
             {
@@ -121,6 +143,10 @@ namespace WakfuMod.Content.NPCs
                 case State_Attacking:
                     Attacking(player);
                     break;
+                case State_SpecialAttack:
+                    SpecialAttack(player);
+                    break;
+
                 default:
                     NPC.ai[1] = State_WanderChase;
                     break;
@@ -266,6 +292,39 @@ namespace WakfuMod.Content.NPCs
                 NPC.netUpdate = true;
             }
         }
+
+        private void SpecialAttack(Player player)
+        {
+            NPC.velocity.X = 0f;
+
+            NPC.ai[0]++;
+            arrowCooldown++;
+
+            const int specialAnimDuration = 60; // 1 segundo (60 ticks)
+            const int arrowInterval = 24;       // una flecha cada 0.4s
+
+            if (arrowCooldown >= arrowInterval && arrowsLaunched < 5)
+            {
+                arrowCooldown = 0;
+                arrowsLaunched++;
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Vector2 spawnPos = player.Center + new Vector2(Main.rand.NextFloat(-50f, 50f), -500f);
+                    Vector2 velocity = new Vector2(0f, 10f); // caen verticales
+                    Projectile.NewProjectile(NPC.GetSource_FromAI(), spawnPos, velocity, ModContent.ProjectileType<WhispererArrow>(), 15, 0f, Main.myPlayer);
+                }
+            }
+
+            if (NPC.ai[0] >= specialAnimDuration)
+            {
+                NPC.ai[0] = 0;
+                specialAttackTimer = 0;
+                NPC.ai[1] = State_WanderChase;
+                NPC.netUpdate = true;
+            }
+        }
+
         #endregion
 
         #region Movement Helpers
@@ -453,7 +512,23 @@ namespace WakfuMod.Content.NPCs
         {
             NPC.spriteDirection = -NPC.direction; // sprite base mira a la izquierda
 
-            if (NPC.ai[1] == State_Attacking)
+            if (NPC.ai[1] == State_SpecialAttack)
+            {
+                int frameStart = 6;
+                int frameEnd = 9;
+
+                NPC.frameCounter += 0.2f;
+                if (NPC.frameCounter >= 1f)
+                {
+                    NPC.frameCounter = 0f;
+                    NPC.frame.Y += frameHeight;
+                    if (NPC.frame.Y < frameStart * frameHeight || NPC.frame.Y > frameEnd * frameHeight)
+                    {
+                        NPC.frame.Y = frameStart * frameHeight;
+                    }
+                }
+            }
+            else if (NPC.ai[1] == State_Attacking)
             {
                 NPC.frame.Y = 5 * frameHeight; // atacar
                 NPC.frameCounter = 0;
@@ -485,6 +560,7 @@ namespace WakfuMod.Content.NPCs
                 NPC.frameCounter = 0;
             }
         }
+
 
         public override void ModifyNPCLoot(NPCLoot npcLoot)
         {

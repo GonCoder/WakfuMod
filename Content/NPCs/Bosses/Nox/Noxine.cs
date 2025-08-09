@@ -32,7 +32,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox // Asegúrate de que el namespace sea
             NPC.knockBackResist = 0.8f;
             NPC.noGravity = true;
             NPC.noTileCollide = true;
-            NPC.HitSound = SoundID.NPCHit5;
+            NPC.HitSound = SoundID.NPCHit15;
             NPC.DeathSound = SoundID.NPCDeath7;
             // IMPORTANTE: Un NPC con vida 1 no puede ser dañado por defecto.
             // Si la hitbox expandida debe hacer daño, el daño de contacto original debe ser 0,

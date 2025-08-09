@@ -46,7 +46,7 @@ namespace WakfuMod.ModSystems
                         Player player = Main.LocalPlayer; // O elegir un jugador aleatorio en MP
                         Vector2 spawnPos = player.Center + new Vector2(0, -500f);
                         int npcIndex = NPC.NewNPC(new EntitySource_WorldEvent(), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
-                        Main.NewText("Un eco temporal resuena... ¡Nox ha vuelto!", new Color(0, 200, 255));
+                        Main.NewText("An echo resound in time... ¡Nox is back, again?!", new Color(0, 200, 255));
                         
                         if (Main.netMode == NetmodeID.Server)
                         {
@@ -65,10 +65,6 @@ namespace WakfuMod.ModSystems
             {
                 NoxSpawnChance -= 0.01f;
             }
-
-            // Desbloquear NPC aliado (se hará más adelante)
-            // Ejemplo: DownedBossSystem.downedNox = true;
-            // Y luego un GlobalNPC comprobaría esa variable para que el NPC se mude.
         }
     }
 }

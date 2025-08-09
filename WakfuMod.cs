@@ -8,13 +8,31 @@ using WakfuMod.Content.Backgrounds;
 using Microsoft.Xna.Framework;
 using WakfuMod.Content.Items.BossSpawners;
 using Terraria.Graphics.Effects;
-using Terraria.Graphics.Shaders; // Necesario para acceder a MyForestBackgroundStyle
+using Terraria.Graphics.Shaders;
+using WakfuMod.Content.Items.Currency;
+using Terraria.GameContent.UI;
+using Terraria.Localization; // Necesario para acceder a MyForestBackgroundStyle
 
 
 namespace WakfuMod
 {
     public class WakfuMod : Mod
     {
+
+        // --- ID para nuestra moneda ---
+        public static int KamaCurrencyId { get; private set; }
+
+        public override void PostSetupContent()
+        {
+            // --- REGISTRAR MONEDA PERSONALIZADA (LA FORMA CORRECTA PARA TU VERSIÓN) ---
+            KamaCurrencyId = CustomCurrencyManager.RegisterCurrency(
+                new KamaCurrency( // Usamos nuestra nueva clase simple
+                    ModContent.ItemType<Kama>(),
+                    999L,
+                    "Kama" // Esta es la clave de localización para el nombre
+                )
+            );
+        }
         public static ModKeybind Habilidad1Keybind { get; private set; }
         public static ModKeybind Habilidad2Keybind { get; private set; }
 
@@ -23,7 +41,7 @@ namespace WakfuMod
             Habilidad1Keybind = KeybindLoader.RegisterKeybind(this, "Skill 1 Wakfu", "V");
             Habilidad2Keybind = KeybindLoader.RegisterKeybind(this, "Skill 2 Wakfu", "X");
 
-             if (!Main.dedServ)
+            if (!Main.dedServ)
             {
                 // Usar un nombre único para nuestro filtro para evitar conflictos
                 string filterName = "WakfuMod:NoxShockwave";
@@ -49,7 +67,7 @@ namespace WakfuMod
             ScoreUpdate,
             ZurcarakDieEffect,
             SpawnNoxBoss,
-            
+
         }
 
         // --- TU MÉTODO HandlePacket ---
@@ -123,6 +141,21 @@ namespace WakfuMod
         }
 
     }
+
+    // --- NUEVA CLASE DE DATOS SIMPLE (HEREDANDO DE CustomCurrencySingleCoin) ---
+    // Esta clase solo existe para pasar el nombre y el color a la clase base.
+    public class KamaCurrency : CustomCurrencySingleCoin
+    {
+        public KamaCurrency(int coinItemID, long currencyCap, string currencyTextKey) : base(coinItemID, currencyCap)
+        {
+            // Pasamos la clave de localización a la clase base
+            CurrencyTextKey = currencyTextKey;
+            // Establecemos el color del texto del precio
+            CurrencyTextColor = Color.Gold;
+        }
+    }
+
+
 }
 
 

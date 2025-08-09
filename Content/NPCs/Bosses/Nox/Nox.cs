@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using WakfuMod.Content.Projectiles;
 using WakfuMod.ModSystems;
 using Microsoft.Xna.Framework.Graphics;
+using Terraria.DataStructures;
 
 namespace WakfuMod.Content.NPCs.Bosses.Nox
 {
@@ -44,7 +45,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             StartBlink,
             EndBlink,
             Attacking,
-            PhaseTransition // <-- ESTADO REINTRODUCIDO
+            PhaseTransition
         }
 
         public override void SetStaticDefaults()
@@ -69,8 +70,10 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             NPC.boss = true;
             NPC.npcSlots = 10f;
             NPC.HitSound = SoundID.NPCHit4;
-            NPC.DeathSound = SoundID.NPCDeath14;
-            // Music = MusicID.Boss2;
+            NPC.DeathSound = new SoundStyle("WakfuMod/audio/NoxDeath")
+            {
+                Volume = 5.5f,
+            };
             Music = MusicLoader.GetMusicSlot(Mod, "Assets/Music/NoxTheme");
         }
 
@@ -154,7 +157,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
             if (NPC.localAI[0] >= BlinkFadeTime)
             {
-                SoundEngine.PlaySound(SoundID.Item8, NPC.position);
+                SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxBlink"), NPC.position);
 
                 // Eliminar noxinas viejas
                 for (int i = 0; i < Main.maxNPCs; i++)
@@ -287,7 +290,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                             }
                         }
                     }
-                    SoundEngine.PlaySound(SoundID.Item111, NPC.Center);
+                    SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxineSummonAttack"), NPC.position);
                 }
             }
 
@@ -309,10 +312,13 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
             if (NPC.ai[0] == 1)
             {
-                SoundEngine.PlaySound(SoundID.Roar, NPC.Center);
+                SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxPhaseTransition")
+                {
+                    Volume = 5.5f,
+                }, NPC.Center);
                 Main.NewText("My childrens called me Daddy...", new Color(0, 200, 255));
                 Main.NewText("My wife called me Milien...", new Color(0, 200, 255));
-                Main.NewText("This world will learn to call me NOX", new Color(0, 200, 255));
+                Main.NewText("This world will learn to call me NOOOOX", new Color(0, 200, 255));
                 Main.NewText("-->Nox TimeStop your hands<--", new Color(255, 10, 10));
                 Main.NewText("-->You cant attack, escape!<--", new Color(255, 10, 10));
             }
@@ -371,10 +377,29 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             }
         }
 
+        // --- MÉTODO PARA CONTROLAR LA INVOCACIÓN ---
+        public override void OnSpawn(IEntitySource source)
+        {
+            // --- REPRODUCIR SONIDO DE INVOCACIÓN PERSONALIZADO ---
+            // Solo reproducir el sonido en los clientes para evitar problemas en el servidor dedicado.
+            if (!Main.dedServ)
+            {
+                // Reemplaza "Nox/NoxSpawnSound" con la ruta a tu archivo de sonido.
+                SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxSpawn")
+                {
+                    Volume = 5.5f,
+                },
+                 NPC.Center);
+            }
+
+        }
+
         public override void OnKill()
         {
             Main.NewText("Nox: ¿¡¡ONLY 20 MEASLY MINUTES!!?", new Color(0, 200, 255));
+            NoxDefeatSystem.SetNoxDefeated();
             ModContent.GetInstance<NoxSpawnSystem>().OnNoxDefeated();
+
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 for (int i = 0; i < Main.maxNPCs; i++)

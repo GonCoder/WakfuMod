@@ -1,229 +1,270 @@
-// // Content/NPCs/Town/Ruel.cs
-// using Terraria;
-// using Terraria.ID;
-// using Terraria.ModLoader;
-// using Terraria.GameContent.Personalities;
-// using Terraria.GameContent.Events; // Para condiciones de eventos si es necesario
-// using System.Collections.Generic;
-// using Microsoft.Xna.Framework; // Necesario para Point
-// using WakfuMod.Content.Items.Weapons; // Reemplaza TuMod por tu namespace para las armas de clase
-// // using WakfuMod.Content.Items.Mounts; // Reemplaza TuMod por tu namespace para la montura
-// // using WakfuMod.Content.Items.Consumables; // Reemplaza TuMod por tu namespace para el spawner de Nox
-// // using WakfuMod.Common.Systems; // ASUNCIÓN: Crearás un ModSystem para manejar la lógica de "Nox Derrotado"
-// // using WakfuMod.Content.Items.Currency; // ASUNCIÓN: Crearás un Item para las Kamas
+// Content/NPCs/Town/Ruel.cs
+using Microsoft.Xna.Framework;               // Vector2
+using Terraria;
+using Terraria.ID;
+using Terraria.ModLoader;
+using Terraria.GameContent.Personalities;
+using System.Collections.Generic;
+using WakfuMod.Content.Items.Weapons;
+using WakfuMod.Content.Items.Currency;
+using WakfuMod.Content.Items.BossSpawners;
+using WakfuMod.ModSystems;
+using Terraria.Utilities;
+using Terraria.GameContent.ItemDropRules;
+using System;
+using WakfuMod.Content.Items.Mounts;
+using WakfuMod.Content.Items.Pets;
+using WakfuMod.Content.Items.Consumables;
+using Terraria.Audio;                        // SoundEngine
+using WakfuMod.Content.Projectiles;          // RuelCoinDrop
 
-// namespace WakfuMod.Content.NPCs.Town // Reemplaza TuMod con el nombre de tu mod
-// {
-//     [AutoloadHead]
-//     public class Ruel : ModNPC
-//     {
-//         // --- Constantes Internas ---
-//         private const string ShopName = "TiendaRuel"; // Nombre interno de la tienda
+namespace WakfuMod.Content.NPCs.Town
+{
+    [AutoloadHead]
+    public class Ruel : ModNPC
+    {
+        private const string ShopName = "TiendaRuel";
 
-//         public override void SetStaticDefaults()
-//         {
-//             // --- Configuración Básica ---
-//             Main.npcFrameCount[Type] = 25; // Ajusta al número de frames de tu sprite
-//             NPCID.Sets.ExtraFramesCount[Type] = 9; // Frames quieto/hablando
-//             NPCID.Sets.AttackFrameCount[Type] = 4; // Frames de ataque (si ataca)
-//             NPCID.Sets.DangerDetectRange[Type] = 120; // Rango de detección
-//             NPCID.Sets.AttackType[Type] = 0; // 0: Melee (puede usar pala?) 3: No ataca
-//             NPCID.Sets.AttackTime[Type] = 45; // Tiempo entre ataques
-//             NPCID.Sets.AttackAverageChance[Type] = 20; // Probabilidad de atacar
-//             NPCID.Sets.HatOffsetY[Type] = 4; // Ajuste para sombreros
+        // === Ataque manual ===
+        private const int AttackRange = 450;
+        private const int AttackCooldownTicks = 60; // 1s entre ataques; ajústalo a gusto
+        private int ruelAttackTimer = 0;
 
-//             // Evitar que desaparezca en eventos como Lluvia de Slimes
-//             NPCID.Sets.CannotSitOnFurniture[Type] = false; // Puede sentarse?
-//             NPCID.Sets.CantTakeLunchMoney[Type] = true; // El Recaudador no le quita dinero (¡es un Anutrof!)
+        public override void SetStaticDefaults()
+        {
+            Main.npcFrameCount[Type] = 8;
 
-//             // --- Felicidad / Personalidad ---
-//             NPC.Happiness
-//                 .SetBiomeAffection<UndergroundBiome>(AffectionLevel.Love) // Ama las cuevas (tesoros!)
-//                 .SetBiomeAffection<DesertBiome>(AffectionLevel.Like) // Le gustan los desiertos (¿ruinas?)
-//                 .SetBiomeAffection<SnowBiome>(AffectionLevel.Dislike) // No le gusta el frío
-//                 .SetBiomeAffection<HallowBiome>(AffectionLevel.Hate) // Odia lo brillante y cursi
-//                 .SetNPCAffection(NPCID.GoblinTinkerer, AffectionLevel.Love) // Ama al que repara cosas (y cobra caro)
-//                 .SetNPCAffection(NPCID.Merchant, AffectionLevel.Like) // Tolera al mercader normal
-//                 .SetNPCAffection(NPCID.TaxCollector, AffectionLevel.Hate) // ¡FUERA IMPUESTOS!
-//                 .SetNPCAffection(NPCID.Pirate, AffectionLevel.Dislike); // No confía en piratas
-//         }
+            NPCID.Sets.ExtraFramesCount[Type] = 9;
+            NPCID.Sets.AttackFrameCount[Type] = 4;
+            NPCID.Sets.DangerDetectRange[Type] = AttackRange; // rango de “veo enemigo”
+            NPCID.Sets.AttackType[Type] = 0;
+            NPCID.Sets.AttackTime[Type] = 45;
+            NPCID.Sets.AttackAverageChance[Type] = 20;
+            NPCID.Sets.HatOffsetY[Type] = 4;
+            NPCID.Sets.CannotSitOnFurniture[Type] = false;
+            NPCID.Sets.CantTakeLunchMoney[Type] = true;
 
-//         public override void SetDefaults()
-//         {
-//             // --- Tamaño y Estadísticas ---
-//             NPC.width = 18;
-//             NPC.height = 40; // Ajusta a tu sprite
-//             NPC.lifeMax = 250;
-//             NPC.defense = 18; // Algo más resistente
-//             NPC.knockBackResist = 0.4f;
+            NPC.Happiness
+                .SetBiomeAffection<UndergroundBiome>(AffectionLevel.Love)
+                .SetBiomeAffection<DesertBiome>(AffectionLevel.Like)
+                .SetBiomeAffection<SnowBiome>(AffectionLevel.Dislike)
+                .SetBiomeAffection<HallowBiome>(AffectionLevel.Hate)
+                .SetNPCAffection(NPCID.GoblinTinkerer, AffectionLevel.Love)
+                .SetNPCAffection(NPCID.Merchant, AffectionLevel.Like)
+                .SetNPCAffection(NPCID.TaxCollector, AffectionLevel.Hate)
+                .SetNPCAffection(NPCID.Pirate, AffectionLevel.Dislike);
+        }
 
-//             // --- Comportamiento AI ---
-//             NPC.aiStyle = 7; // Town NPC estándar
-//             NPC.townNPC = true;
-//             NPC.friendly = true;
+        public override void SetDefaults()
+        {
+            NPC.width = 25;
+            NPC.height = 80;
+            NPC.lifeMax = 666;
+            NPC.defense = 30;
+            NPC.knockBackResist = 0.4f;
+            NPC.aiStyle = 7;
+            NPC.townNPC = true;
+            NPC.friendly = true;
+            NPC.damage = 69;
+            NPC.HitSound = SoundID.NPCHit1;
+            NPC.DeathSound = SoundID.NPCDeath1;
 
-//             // --- Sonidos y Animación ---
-//             NPC.damage = 12; // Daño si ataca
-//             NPC.HitSound = SoundID.NPCHit1;
-//             NPC.DeathSound = SoundID.NPCDeath1; // Sonido de muerte genérico (o uno personalizado!)
-//             AnimationType = NPCID.Merchant; // Usa animación base del Mercader (o Guía, o la que mejor se ajuste)
-//         }
+            AnimationType = -1; // usamos FindFrame()
+        }
 
-//         // --- Condiciones para Aparecer ---
-//         public override bool CanTownNPCSpawn(int numTownNPCs)
-//         {
-//             // Comprueba si la condición "Nox Derrotado" se cumple
-//             // Necesitarás un ModSystem para registrar esto, por ejemplo, en el Kill del NPC Nox.
-//             // Aquí ASUMIMOS que tienes un ModSystem llamado 'NoxDefeatSystem' con una variable bool 'noxDefeated'
-//              bool noxIsDefeated = ModContent.GetInstance<NoxDefeatSystem>().noxDefeated; // Reemplaza con tu sistema real
+        public override bool CanTownNPCSpawn(int numTownNPCs)
+        {
+            return ModContent.GetInstance<NoxDefeatSystem>().noxDefeated;
+        }
 
-//              return noxIsDefeated; // Solo aparece si Nox ha sido derrotado al menos una vez
-//         }
+        public override List<string> SetNPCNameList()
+        {
+            return new List<string>() {
+                "Ruel Stroud"
+            };
+        }
 
-//         // --- Condiciones para Mudarse ---
-//         // tModLoader maneja la mudanza automáticamente si hay una casa válida y CanTownNPCSpawn es true.
-//         // Ya no se necesita CheckConditions para esto.
+        public override string GetChat()
+        {
+            WeightedRandom<string> chat = new WeightedRandom<string>(Main.rand);
 
-//         // --- Nombres Posibles ---
-//         public override List<string> SetNPCNameList() {
-//             return new List<string>() {
-//                 "Ruel Stroud" // Nombre canónico
-//                 // Podrías añadir otros si quieres, pero Ruel es Ruel
-//             };
-//         }
+            chat.Add("Hey, young man! Looking for treasure? I have just what you need... for a modest price in Kamas.", 1.0);
+            chat.Add("Where are Eva and Amalia? Did you see 'em?", 1.0);
+            chat.Add("Your 'gold' looks like Kamas, can you give me?", 1.0);
+            if (Main.LocalPlayer.HasItem(ModContent.ItemType<Kama>()))
+            {
+                chat.Add("¡Is that a Kama?!", 1.5);
+            }
+            if (NPC.AnyNPCs(NPCID.TaxCollector))
+            {
+                chat.Add("I hope that son of a 'Gobbly' tax collector doesn't come near my Kamas!", 0.8);
+            }
 
-//         // --- Perfil del Town NPC (Icono de Mapa, etc.) ---
-//         public override ITownNPCProfile TownNPCProfile() {
-//             return new TownNPCProfile(
-//                 NPC.GetPartyTexture(), // Usa textura de fiesta genérica o crea una Ruel_Party.png
-//                 ModContent.GetModHeadSlot(HeadTexture), // Busca Ruel_Head.png automáticamente
-//                 Texture // Textura principal Ruel.png
-//             );
-//         }
+            return chat;
+        }
 
-//         // --- Diálogo ---
-//         public override string GetChat()
-//         {
-//             // Puedes usar WeightedRandom para variedad
-//             WeightedRandom<string> chat = new WeightedRandom<string>(Main.rand); // Pasa Main.rand
+        public override void SetChatButtons(ref string button, ref string button2)
+        {
+            button = Lang.inter[28].Value;
+        }
 
-//             chat.Add("¡Eh, joven! ¿Buscas tesoros? Tengo justo lo que necesitas... por un módico precio en Kamas.", 1.0);
-//             chat.Add("Estos artefactos no se encuentran todos los días, ¡aprovecha!", 1.0);
-//             chat.Add("¿Kamas? ¡Ah, la única moneda que vale la pena! El oro es... secundario.", 1.0);
-//             chat.Add("Nox... ese tipo sí que sabía cómo acumular Kamas. Una pena lo suyo.", 0.5); // Menos frecuente
-//             if (Main.LocalPlayer.HasItem(ModContent.ItemType<Kama>())) { // Reemplaza Kama con tu item
-//                 chat.Add("¡Veo que tienes buen gusto para la moneda!", 1.5); // Más frecuente si tienes Kamas
-//             }
-//             if (NPC.AnyNPCs(NPCID.TaxCollector)) {
-//                  chat.Add("¡Espero que ese chupasangre del recaudador no se acerque a mis Kamas!", 0.8);
-//             }
+        public override void OnChatButtonClicked(bool firstButton, ref string shopName)
+        {
+            if (firstButton)
+            {
+                shopName = ShopName;
+            }
+        }
 
-//             return chat; // Devuelve una frase aleatoria
-//         }
+        public override void AddShops()
+        {
+            int kamaCurrencyId = WakfuMod.KamaCurrencyId;
 
-//         // --- Botón de Tienda ---
-//         public override void SetChatButtons(ref string button, ref string button2)
-//         {
-//             button = Lang.inter[28].Value; // "Tienda"
-//         }
+            var ruelShop = new NPCShop(Type, ShopName)
+                .Add(new Item(ModContent.ItemType<YopukaShockwaveSword>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<WakmehamehaWeapon>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<SteamerPistol>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<TymadorKick>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<KamasutarMount>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<JuniorPet>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<Jalaball>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<NoxSpawner>())
+                {
+                    shopCustomPrice = Item.buyPrice(gold: 5, silver: 25)
+                });
 
-//         // --- Acción del Botón ---
-//         public override void OnChatButtonClicked(bool firstButton, ref string shopName)
-//         {
-//             if (firstButton)
-//             {
-//                 shopName = ShopName; // Abre la tienda definida en AddShops
-//             }
-//         }
+            ruelShop.Register();
+        }
 
-//         // --- Definición de la Tienda ---
-//         public override void AddShops()
-//         {
-//             // Crear la instancia de la tienda
-//             var shop = new NPCShop(Type, ShopName);
+        public override void ModifyNPCLoot(NPCLoot npcLoot)
+        {
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Kama>(), 1, 5, 10));
+        }
 
-//             // --- Moneda Personalizada: Kamas ---
-//             // ¡IMPORTANTE! Reemplaza 'Kama' con el nombre exacto de tu clase de item para las Kamas
-//             int kamaItemID = ModContent.ItemType<Kama>();
-//             shop.AddCustomCurrency(kamaItemID); // Establece Kama como la moneda para los siguientes items
+        public override void AI()
+        {
+            // Que mire hacia donde se mueve
+            if (NPC.velocity.X > 0.1f)
+            {
+                NPC.direction = 1;
+                NPC.spriteDirection = -1;
+            }
+            else if (NPC.velocity.X < -0.1f)
+            {
+                NPC.direction = -1;
+                NPC.spriteDirection = 1;
+            }
 
-//             // --- Items que Cuestan Kamas ---
-//             // Añade las armas de clase (reemplaza con tus nombres de clase reales)
-//             shop.Add<YopukaShockwaveSword>(Condition.NpcIsPresent(Type)) // Condición simple para asegurar que Ruel esté
-//                 .SetPrice(kamaItemID, 1); // Precio: 1 Kama
+            // --- Ataque manual si ve un enemigo ---
+            if (Main.netMode != NetmodeID.MultiplayerClient) // evitar doble spawn en MP
+            {
+                if (ruelAttackTimer > 0)
+                    ruelAttackTimer--;
 
-//             shop.Add<WakmehamehaWeapon>(Condition.NpcIsPresent(Type))
-//                 .SetPrice(kamaItemID, 1);
+                if (ruelAttackTimer <= 0)
+                {
+                    NPC target = null;
+                    float bestDist = AttackRange;
 
-//             // shop.Add<TuArmaSteamer>(Condition.NpcIsPresent(Type)).SetPrice(kamaItemID, 1);
-//             // shop.Add<TuArmaTymador>(Condition.NpcIsPresent(Type)).SetPrice(kamaItemID, 1);
+                    for (int i = 0; i < Main.npc.Length; i++)
+                    {
+                        var n = Main.npc[i];
+                        if (n.active && !n.friendly && !n.townNPC && n.CanBeChasedBy(NPC, false))
+                        {
+                            float d = Vector2.Distance(NPC.Center, n.Center);
+                            if (d <= bestDist)
+                            {
+                                bestDist = d;
+                                target = n;
+                            }
+                        }
+                    }
 
-//             // Añade la montura (reemplaza con tu nombre de clase real)
-//             shop.Add<TuMontura>(Condition.NpcIsPresent(Type)) // Reemplaza TuMontura
-//                 .SetPrice(kamaItemID, 1);
+                    if (target != null)
+                    {
+                        var src = NPC.GetSource_FromAI();
 
-//             // --- Items que Cuestan Oro (Spawner de Nox) ---
-//             // Cambia a la moneda por defecto (Cobre/Plata/Oro/Platino)
-//             shop.UseDefaultCurrency(); // Vuelve a usar la moneda vanilla
+                        int p = Projectile.NewProjectile(
+                            src,
+                            NPC.Center,
+                            Vector2.Zero,
+                            ModContent.ProjectileType<RuelCoinDrop>(),
+                            15,   // daño; cámbialo si quieres
+                            1f,
+                            Main.myPlayer,
+                            0f,
+                            target.whoAmI // ai[1] = objetivo
+                        );
 
-//             // Añade el spawner de Nox (reemplaza con tu nombre de clase real)
-//             shop.Add<NoxSpawnerItem>(Condition.NpcIsPresent(Type)) // Reemplaza NoxSpawnerItem
-//                  .SetPrice(gold: 1); // Precio: 1 moneda de oro
+                        if (p >= 0)
+                        {
+                            SoundEngine.PlaySound(SoundID.Coins, NPC.Center);
+                            ruelAttackTimer = AttackCooldownTicks;
+                        }
+                    }
+                }
+            }
 
-//             // --- Registrar la tienda ---
-//             shop.Register();
-//         }
+            // IA base del town
+            base.AI();
+        }
 
-//         // --- (Opcional) Hacer que suelte algo al morir ---
-//         public override void ModifyNPCLoot(NPCLoot npcLoot)
-//         {
-//             // Ejemplo: Podría soltar algunas Kamas si muere?
-//             // npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Kama>(), 1, 5, 10)); // Suelta entre 5 y 10 Kamas al morir
-//         }
+        // Animación personalizada
+        public override void FindFrame(int frameHeight)
+        {
+            const int idleFrame = 0;
+            const int walkStart = 1;
+            const int walkEnd = 7;
+            const int ticksPerFrame = 8;
 
-//         // --- (Opcional) Animación de Ataque ---
-//         // public override void FindFrame(int frameHeight) { ... } // Si necesitas controlar la animación manualmente
-
-//         // --- (Opcional) Sonido de Ataque ---
-//         // public override void ModifyHitPlayer(Player target, ref Player.HurtModifiers modifiers) { ... } // Si ataca al jugador
-//         // public override void OnHitPlayer(Player target, Player.HurtInfo hurtInfo) { ... }
-//     }
-
-//     // --- Sistema para Trackear Derrota de Nox ---
-//     // Crea un archivo separado para esto, ej. Common/Systems/NoxDefeatSystem.cs
-//     /*
-//     using Terraria.ModLoader;
-//     using Terraria.ModLoader.IO;
-
-//     namespace TuMod.Common.Systems // Reemplaza TuMod
-//     {
-//         public class NoxDefeatSystem : ModSystem
-//         {
-//             public bool noxDefeated = false;
-
-//             public override void ClearWorld() {
-//                 noxDefeated = false; // Resetea al salir del mundo
-//             }
-
-//             public override void SaveWorldData(TagCompound tag) {
-//                 if (noxDefeated) {
-//                     tag["noxDefeated"] = true;
-//                 }
-//             }
-
-//             public override void LoadWorldData(TagCompound tag) {
-//                 noxDefeated = tag.ContainsKey("noxDefeated");
-//             }
-
-//              // --- Necesitarás llamar a esto desde el código de Nox ---
-//              // Ejemplo: En el método Kill o ModifyNPCLoot del NPC Nox
-//              public static void SetNoxDefeated() {
-//                  var instance = ModContent.GetInstance<NoxDefeatSystem>();
-//                  if (instance != null) {
-//                      instance.noxDefeated = true;
-//                  }
-//              }
-//         }
-//     }
-//     */
-// }
+            if (Math.Abs(NPC.velocity.X) < 0.1f)
+            {
+                NPC.frame.Y = idleFrame * frameHeight;
+                NPC.frameCounter = 0;
+            }
+            else
+            {
+                NPC.frameCounter++;
+                if (NPC.frameCounter >= ticksPerFrame)
+                {
+                    NPC.frameCounter = 0;
+                    int currentFrame = NPC.frame.Y / frameHeight;
+                    currentFrame++;
+                    if (currentFrame > walkEnd)
+                    {
+                        currentFrame = walkStart;
+                    }
+                    NPC.frame.Y = currentFrame * frameHeight;
+                }
+            }
+        }
+    }
+}
