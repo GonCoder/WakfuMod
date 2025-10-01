@@ -597,7 +597,7 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.ai[1] = 0f;
                 Projectile.localAI[0] = FrenzyDuration;
                 Projectile.localAI[1] = 0;
-                SoundEngine.PlaySound(SoundID.Zombie89, Projectile.Center);
+                SoundEngine.PlaySound(SoundID.Cockatiel, Projectile.Center);
                 Projectile.netUpdate = true;
                 isFrenzyActive = true;
             }

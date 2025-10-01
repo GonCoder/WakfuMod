@@ -41,6 +41,8 @@ Projectiles: {
 	WhispererArrow.DisplayName: Whisperer Arrow
 	RuelTreasureDrop.DisplayName: Ruel Treasure Drop
 	RuelCoinDrop.DisplayName: Ruel Coin Drop
+	EcaflipFlea.DisplayName: Ecaflip Flea
+	EcaflipTongueLash.DisplayName: Ecaflip Tongue Lash
 }
 
 Items: {
@@ -126,6 +128,11 @@ Items: {
 
 	NoxSpawner: {
 		DisplayName: Nox Spawner
+		Tooltip: ""
+	}
+
+	LuckyLick: {
+		DisplayName: Lucky Lick
 		Tooltip: ""
 	}
 }
