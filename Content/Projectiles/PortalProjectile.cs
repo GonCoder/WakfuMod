@@ -48,11 +48,21 @@ namespace WakfuMod.Content.Projectiles
             }
         }
 
-        private static void TeleportProjectile(Projectile proj)
+        private void TeleportProjectile(Projectile proj)
         {
-            // Verificar que existan ambos portales para evitar problemas de referencia nula
-            if (!PortalHandler.portal1.HasValue || !PortalHandler.portal2.HasValue)
-                return;
+            // Find the other portal owned by the same player
+            Projectile otherPortal = null;
+            for (int i = 0; i < Main.maxProjectiles; i++)
+            {
+                Projectile p = Main.projectile[i];
+                if (p.active && p.type == Projectile.type && p.owner == Projectile.owner && p.whoAmI != Projectile.whoAmI)
+                {
+                    otherPortal = p;
+                    break;
+                }
+            }
+
+            if (otherPortal == null) return;
             
             if (proj.ai[1] > 0) // Cooldown
             {
@@ -60,26 +70,11 @@ namespace WakfuMod.Content.Projectiles
                 return;
             }
             
-            Vector2? targetPortal = null;
-
-            if (Vector2.Distance(proj.Center, PortalHandler.portal1.Value) < 45f)
-            {
-                targetPortal = PortalHandler.portal2;
-            }
-            else if (Vector2.Distance(proj.Center, PortalHandler.portal2.Value) < 45f)
-            {
-                targetPortal = PortalHandler.portal1;
-            }
-
-            if (targetPortal.HasValue)
-{
-    proj.position = targetPortal.Value - new Vector2(proj.width / 2, proj.height / 2);
-    proj.ai[1] = 60; // Cooldown de teletransporte
-   proj.localAI[1] = 1f;
-proj.netUpdate = true;
-
-}
-
+            // Teleport
+            proj.position = otherPortal.Center - new Vector2(proj.width / 2, proj.height / 2);
+            proj.ai[1] = 60; // Cooldown de teletransporte
+            proj.localAI[1] = 1f;
+            proj.netUpdate = true;
         }
 
         public override void PostDraw(Color lightColor)

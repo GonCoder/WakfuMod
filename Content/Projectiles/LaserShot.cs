@@ -1,4 +1,4 @@
-// LaserShot.cs
+﻿// LaserShot.cs
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -196,7 +196,7 @@ namespace WakfuMod.Content.Projectiles
 
         // --- NUEVO OVERRIDE: Kill ---
         // Este método se llama cuando Projectile.timeLeft llega a 0 o cuando Projectile.Kill() es llamado.
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // Llama a nuestra función de explosión personalizada
             Explode();

@@ -159,6 +159,10 @@ namespace WakfuMod.Content.NPCs.Town
                 .Add(new Item(ModContent.ItemType<NoxSpawner>())
                 {
                     shopCustomPrice = Item.buyPrice(gold: 5, silver: 25)
+                })
+                .Add(new Item(ModContent.ItemType<TorossSpawner>())
+                {
+                    shopCustomPrice = Item.buyPrice(gold: 15)
                 });
 
             ruelShop.Register();

@@ -7,6 +7,7 @@ using Terraria.ID; // Para NetmodeID
 using WakfuMod.Content.Backgrounds;
 using Microsoft.Xna.Framework;
 using WakfuMod.Content.Items.BossSpawners;
+using WakfuMod.jugador;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
 using WakfuMod.Content.Items.Currency;
@@ -67,6 +68,9 @@ namespace WakfuMod
             ScoreUpdate,
             ZurcarakDieEffect,
             SpawnNoxBoss,
+            SyncPlayerWakfuData,
+            ClosePortals,
+            RequestPortalExplosion,
 
         }
 
@@ -77,6 +81,35 @@ namespace WakfuMod
 
             switch (msgType)
             {
+                case MessageType.ClosePortals:
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        int playerIndex = reader.ReadByte();
+                        Player p = Main.player[playerIndex];
+                        PortalHandler.ClosePortals(p);
+                    }
+                    break;
+                case MessageType.RequestPortalExplosion:
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        int playerIndex = reader.ReadByte();
+                        Player p = Main.player[playerIndex];
+                        PortalHandler.TriggerViolentPortalExplosion(p);
+                    }
+                    break;
+                case MessageType.SyncPlayerWakfuData:
+                    byte playernumber = reader.ReadByte();
+                    WakfuPlayer wakfuPlayer = Main.player[playernumber].GetModPlayer<WakfuPlayer>();
+                    // TODO: Implement ReceivePlayerSync method in WakfuPlayer class
+                    // wakfuPlayer.ReceivePlayerSync(reader);
+
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        // Forward the changes to the other clients
+                        wakfuPlayer.SyncPlayer(-1, whoAmI, false);
+                    }
+                    break;
+
                 // --- CASO REFACTORIZADO ---
                 case MessageType.PlayerTeamChange:
                     // Simplemente llama al manejador específico en FootballSystem

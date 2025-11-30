@@ -1,4 +1,4 @@
-// En Content/Projectiles/ZurcarakDie.cs
+﻿// En Content/Projectiles/ZurcarakDie.cs
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -101,7 +101,7 @@ namespace WakfuMod.Content.Projectiles
 
         // --- MÉTODO Kill: Activar el efecto al final ---
         [System.Obsolete]
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // El efecto se activa cuando el proyectil "muere" (al final de su timeLeft).
             // Solo el dueño debe iniciar el proceso de red.

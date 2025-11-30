@@ -1,4 +1,4 @@
-// Content/Projectiles/TymadorBomb.cs
+﻿// Content/Projectiles/TymadorBomb.cs
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -191,13 +191,10 @@ namespace WakfuMod.Content.Projectiles
         // --- Método para la Lógica del Cable ---
         private void CheckAndApplyCableDamage()
         {
-            // Solo el dueño de la bomba debe ejecutar la lógica de daño
-            // (Esto es importante para multijugador, aunque StrikeNPC maneja sincronización)
-            if (Projectile.owner != Main.myPlayer && Main.netMode != NetmodeID.Server) // Corrección: Solo el owner o el servidor
+            // Solo el servidor o singleplayer debe ejecutar la lógica de daño
+            if (Main.netMode == NetmodeID.MultiplayerClient)
             {
-                //return; // Descomentar si hay problemas de duplicación de daño en MP, aunque StrikeNPC debería manejarlo.
-                // Por ahora, dejaremos que se ejecute en todos lados para simplicidad visual/local,
-                // pero StrikeNPC solo tendrá efecto real si lo llama el owner/servidor.
+                return;
             }
 
 
@@ -354,7 +351,7 @@ namespace WakfuMod.Content.Projectiles
         }
 
         // --- Lógica de Explosión al Morir ---
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // Llamar a la lógica de cadena primero
             TriggerChainReaction();
@@ -430,7 +427,7 @@ namespace WakfuMod.Content.Projectiles
             HashSet<int> hitNpcsThisExplosion = new HashSet<int>();
 
             // --- PASO 3.1: Daño a NPCs en los cables conectados ---
-            if (Main.netMode != NetmodeID.MultiplayerClient || Projectile.owner == Main.myPlayer)
+            if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 // Re-encontrar bombas conectadas (similar a TriggerChainReaction/CheckAndApplyCableDamage)
                 List<Projectile> ownerBombs = new List<Projectile>();
@@ -521,7 +518,7 @@ namespace WakfuMod.Content.Projectiles
 
 
             // --- PASO 3.2: Daño de Área Estándar (Radio) ---
-            if (Main.netMode != NetmodeID.MultiplayerClient || Projectile.owner == Main.myPlayer)
+            if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 for (int i = 0; i < Main.maxNPCs; i++)
                 {

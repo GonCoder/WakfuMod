@@ -1,3 +1,4 @@
 displayName = Wakfu Classes
 author = Mordevol
-version = 0.9.7.1
+version = 0.9.9.3
+

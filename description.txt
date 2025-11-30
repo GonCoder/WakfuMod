@@ -148,21 +148,27 @@ Results 4, 5, & 6 (Jackpot!):
 [6] Kama-alanche! Unleashes a massive screen-wide explosion that damages all enemies for 30-50% of their max health. As a reward for your incredible luck, it also spawns 10 gold coins!
 Get ready to embrace randomness and may fortune always be on your side with the Ecaflip
 
+👹 Bosses & NPCs:
+Challenge iconic villains from the Wakfu universe!
+
+- Nox: The time-manipulating Xelor is back! Defeat him to stop his madness. (5% chance to spawn at dawn).
+- Toross Mordal: A massive Stasis-infused threat. Face him after defeating the Moon Lord. (Spawn item sold by Ruel or 5% chance to spawn at night post-Moon Lord).
+
+Ruel Stroud (Town NPC):
+The greedy but lovable Enutrof arrives after you defeat Nox.
+He sells unique class weapons, mounts, pets, and boss summoners... for a price in Kamas, of course!
+
 ✨ Core Mod Systems:
 Choose your class at the start (F1 = Selatrop, F2 = Yopuka, F3 = Steamer, F4 = Rogue, F5 Zurcarac).
 
 Class selection is permanent for each character.
 
-Each class has unique abilities, UI, visual effects, and cooldowns.
-
 Damage scaling is based on flat base + %Enemy Max HP, to keep every weapon useful throughout progression.
 
-Encourages tactical thinking and ability combos.
-
 🎨 Visuals & Audio:
-Custom-made sprites, animations, UI, sound effects.
+Custom-made sprites, animations, UI, sound effects
 
-Many assets made by me or contributed by the community.
+Many assets made by me or contributed by the community
 
 Thanks to Valvinium for animation/sprite help ❤️
 https://valvinium.newgrounds.com/
@@ -171,30 +177,18 @@ https://valvinium.newgrounds.com/
 Designed to work with modded weapons that use standard logic.
 (If you want your mod weapon to pass throu portals, make sure to pin it as a "friendly" projectile = true)
 
-Multiplayer support built-in (but not heavily tested).
+Multiplayer support built-in (but not heavily tested)
 
-Minimal issues with vanilla content (Zenith has minor visual bugs).
+Minimal issues with vanilla content (Zenith has minor visual bugs)
 
-Expect a lot of bugs (if you do weird things) cuz the mod is still in WIP. (But if you play as intended it works somehow very good).
+Expect a lot of bugs (if you do weird things) cuz the mod is still in WIP. (But if you play as intended it works somehow very good)
 
 🧠 Future Plans:
 More classes: Aniripsa, Cra, and more.
-
-Boss fight: Nox, cuz he is so fking cool.
-
-Boss fight: Toross Mordal, cuz we need his sword as a drop.
-
-Skins (Amalia, Eva).
-
-Town NPC after defeating Nox. Ruel vendor will come and sell every wakfu weapon and Nox spawner. 
-
-
-
+Skins
 Expanded weapon trees and ability trees per class.
 
 ❤️ Community-Driven:
 This mod is made with love for Wakfu fans.
-If you're a fan of strategy, flashy visuals, or just want to portal-punch a skeleton across space, this mod is for you.
-
+If you're a fan of flashy visuals, or just want to portal-punch a skeleton across space, this mod is for you.
 Always looking for contributors (sprites, testers, translators).
-Get in touch or join the community to help bring the World of Twelve into Terraria!

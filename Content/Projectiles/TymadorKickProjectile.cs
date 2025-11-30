@@ -1,4 +1,4 @@
-// Content/Projectiles/TymadorKickProjectile.cs
+﻿// Content/Projectiles/TymadorKickProjectile.cs
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -354,7 +354,7 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
 
 
         // --- Al Morir (Tiempo agotado o Kill llamado) ---
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // Intenta volver a mostrar al jugador
             TryShowPlayer();

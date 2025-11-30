@@ -1,4 +1,4 @@
-using Terraria;
+﻿using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
@@ -190,7 +190,7 @@ namespace WakfuMod.Content.Projectiles
 
 
          // --- Lógica de Explosión (Kill) ---
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // Usar Projectile.Center como el punto de origen exacto
             Vector2 explosionCenter = Projectile.Center; // <-- CAMBIO: Usar variable clara para el centro

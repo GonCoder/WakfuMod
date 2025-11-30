@@ -60,8 +60,12 @@ namespace WakfuMod.Content.Projectiles
             // Firing Phase Setup - No changes needed
             if (Projectile.localAI[0] < ChargeTime)
             {
-                Vector2 direction = player.DirectionTo(Main.MouseWorld).SafeNormalize(Vector2.UnitX);
-                Projectile.velocity = direction;
+                if (Projectile.owner == Main.myPlayer)
+                {
+                    Vector2 direction = player.DirectionTo(Main.MouseWorld).SafeNormalize(Vector2.UnitX);
+                    Projectile.velocity = direction;
+                    Projectile.netUpdate = true;
+                }
                 Projectile.localAI[0] = ChargeTime; // Mark as fired
                                                     // Play firing sound once
                 SoundEngine.PlaySound(SoundID.Item125, Projectile.Center); // Example: Zenith swing sound
@@ -79,8 +83,15 @@ namespace WakfuMod.Content.Projectiles
             // Only perform damage and portal checks if portals haven't been exploded by this beam yet
             if (!hasExplodedPortals)
             {
-                ApplyBeamDamage(beamStart, beamEnd, player); // Pass player for damage calculation context
-                CheckAndTriggerPortalExplosion(beamStart, beamEnd, player); // Updated method call
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    ApplyBeamDamage(beamStart, beamEnd, player); // Pass player for damage calculation context
+                }
+                
+                if (Projectile.owner == Main.myPlayer)
+                {
+                    CheckAndTriggerPortalExplosion(beamStart, beamEnd, player); // Updated method call
+                }
             }
 
             UpdateDustCooldowns();

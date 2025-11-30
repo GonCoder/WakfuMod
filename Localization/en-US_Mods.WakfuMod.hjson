@@ -43,6 +43,8 @@ Projectiles: {
 	RuelCoinDrop.DisplayName: Ruel Coin Drop
 	EcaflipFlea.DisplayName: Ecaflip Flea
 	EcaflipTongueLash.DisplayName: Ecaflip Tongue Lash
+	TorossStasisLaser.DisplayName: Toross Stasis Laser
+	TorossHomingProjectile.DisplayName: Toross Homing Projectile
 }
 
 Items: {
@@ -135,6 +137,11 @@ Items: {
 		DisplayName: Lucky Lick
 		Tooltip: ""
 	}
+
+	TorossSpawner: {
+		DisplayName: Toross Spawner
+		Tooltip: ""
+	}
 }
 
 Buffs: {
@@ -196,4 +203,6 @@ NPCs: {
 			Princess_LovesNPC: Me gusta {NPCName}.
 		}
 	}
+
+	Toross.DisplayName: Toross
 }

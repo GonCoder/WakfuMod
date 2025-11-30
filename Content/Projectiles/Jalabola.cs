@@ -1,4 +1,4 @@
-// Content/Projectiles/Jalabola.cs (Nombre cambiado como sugeriste)
+﻿// Content/Projectiles/Jalabola.cs (Nombre cambiado como sugeriste)
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -247,7 +247,7 @@ namespace WakfuMod.Content.Projectiles
         }
 
         // --- Kill (Efecto simple) ---
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             if (!Main.dedServ)
             {

@@ -59,7 +59,7 @@ namespace WakfuMod
                 if (portal1ID != -1 && Main.projectile[portal1ID] != null && Main.projectile[portal1ID].active)
                 {
                     // Use standard detonation when replacing
-                    DetonatePortal(portal1ID, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
+                    DetonatePortal(Main.projectile[portal1ID], player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
                     portal1ID = -1;
                     portal1 = null;
                 }
@@ -72,7 +72,7 @@ namespace WakfuMod
                 if (portal2ID != -1 && Main.projectile[portal2ID] != null && Main.projectile[portal2ID].active)
                 {
                     // Use standard detonation when replacing
-                    DetonatePortal(portal2ID, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
+                    DetonatePortal(Main.projectile[portal2ID], player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
                     portal2ID = -1;
                     portal2 = null;
                 }
@@ -88,27 +88,34 @@ namespace WakfuMod
 
          public static void ClosePortals(Player player)
         {
-            bool portalClosed = false;
-            if (portal1ID != -1 && Main.projectile[portal1ID] != null && Main.projectile[portal1ID].active)
+            if (Main.netMode == NetmodeID.MultiplayerClient && player.whoAmI == Main.myPlayer)
             {
-                DetonatePortal(portal1ID, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
-                portal1ID = -1;
-                portal1 = null;
-                portalClosed = true;
-            }
-            if (portal2ID != -1 && Main.projectile[portal2ID] != null && Main.projectile[portal2ID].active)
-            {
-                DetonatePortal(portal2ID, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
-                portal2ID = -1;
-                portal2 = null;
-                portalClosed = true;
+                ModPacket packet = ModContent.GetInstance<WakfuMod>().GetPacket();
+                packet.Write((byte)WakfuMod.MessageType.ClosePortals);
+                packet.Write((byte)player.whoAmI);
+                packet.Send();
             }
 
-            if (portalClosed)
+            bool portalClosed = false;
+            // Iterate through all projectiles to find portals owned by the player
+            for (int i = 0; i < Main.maxProjectiles; i++)
             {
-               
+                Projectile p = Main.projectile[i];
+                if (p.active && p.type == ModContent.ProjectileType<PortalProjectile>() && p.owner == player.whoAmI)
+                {
+                    DetonatePortal(p, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
+                    portalClosed = true;
+                }
             }
-            isFirstPortal = true;
+
+            if (player.whoAmI == Main.myPlayer)
+            {
+                portal1ID = -1;
+                portal1 = null;
+                portal2ID = -1;
+                portal2 = null;
+                isFirstPortal = true;
+            }
         }
 
 
@@ -116,44 +123,43 @@ namespace WakfuMod
         // This method will detonate BOTH portals violently if they exist.
         public static void TriggerViolentPortalExplosion(Player owner)
         {
+            if (Main.netMode == NetmodeID.MultiplayerClient && owner.whoAmI == Main.myPlayer)
+            {
+                ModPacket packet = ModContent.GetInstance<WakfuMod>().GetPacket();
+                packet.Write((byte)WakfuMod.MessageType.RequestPortalExplosion);
+                packet.Write((byte)owner.whoAmI);
+                packet.Send();
+            }
+
             bool exploded = false;
             // Use a single sound instance for the combined explosion
             SoundEngine.PlaySound(ViolentExplosionSound, owner.Center); // Play sound near player or average portal position
 
-            if (portal1ID != -1 && Main.projectile[portal1ID] != null && Main.projectile[portal1ID].active)
+            for (int i = 0; i < Main.maxProjectiles; i++)
             {
-                // Call the DETONATOR function with VIOLENT parameters
-                DetonatePortal(portal1ID, owner, ViolentExplosionRadius, ViolentExplosionBaseDamage, ViolentExplosionKnockback, null, // Sound already played
-                               ViolentExplosionDustType1, ViolentExplosionDustType2, ViolentExplosionDustCount, true); // Add % life damage flag
-                portal1ID = -1; // Clear ID
-                portal1 = null; // Clear position
-                exploded = true;
+                Projectile p = Main.projectile[i];
+                if (p.active && p.type == ModContent.ProjectileType<PortalProjectile>() && p.owner == owner.whoAmI)
+                {
+                    DetonatePortal(p, owner, ViolentExplosionRadius, ViolentExplosionBaseDamage, ViolentExplosionKnockback, null,
+                                   ViolentExplosionDustType1, ViolentExplosionDustType2, ViolentExplosionDustCount, true);
+                    exploded = true;
+                }
             }
 
-            if (portal2ID != -1 && Main.projectile[portal2ID] != null && Main.projectile[portal2ID].active)
-            {
-                 // Call the DETONATOR function with VIOLENT parameters
-                DetonatePortal(portal2ID, owner, ViolentExplosionRadius, ViolentExplosionBaseDamage, ViolentExplosionKnockback, null, // Sound already played
-                               ViolentExplosionDustType1, ViolentExplosionDustType2, ViolentExplosionDustCount, true); // Add % life damage flag
-                portal2ID = -1; // Clear ID
-                portal2 = null; // Clear position
-                exploded = true;
-            }
-
-            if (exploded)
+            if (exploded && owner.whoAmI == Main.myPlayer)
             {
                  // Optional: Message for violent explosion
                  // Main.NewText("¡Resonancia de portal catastrófica!", Color.Cyan);
                  isFirstPortal = true; // Reset placement order
+                 portal1ID = -1; portal1 = null;
+                 portal2ID = -1; portal2 = null;
             }
         }
         // --- Helper Method to Detonate a Specific Portal ---
-        private static void DetonatePortal(int portalProjectileIndex, Player owner,
+        private static void DetonatePortal(Projectile portal, Player owner,
                                            float explosionRadius, int baseDamage, float knockback, SoundStyle? sound,
                                            int dustType1, int dustType2, int dustCount, bool addLifePercentDamage = false)
         {
-            if (portalProjectileIndex < 0 || portalProjectileIndex >= Main.maxProjectiles) return;
-            Projectile portal = Main.projectile[portalProjectileIndex];
             if (portal == null || !portal.active || portal.type != ModContent.ProjectileType<PortalProjectile>()) return;
 
             Vector2 explosionPosition = portal.Center;
@@ -190,27 +196,30 @@ namespace WakfuMod
             }
 
             // --- Damage Logic (Server/Singleplayer authoritative) ---
-            float radiusSq = explosionRadius * explosionRadius;
-            foreach (NPC npc in Main.npc)
+            if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                if (npc.active && !npc.friendly && npc.CanBeChasedBy(portal) && !npc.dontTakeDamage)
+                float radiusSq = explosionRadius * explosionRadius;
+                foreach (NPC npc in Main.npc)
                 {
-                    if (Vector2.DistanceSquared(npc.Center, explosionPosition) <= radiusSq)
+                    if (npc.active && !npc.friendly && npc.CanBeChasedBy(portal) && !npc.dontTakeDamage)
                     {
-                        int finalDamage = baseDamage;
-                        // Apply owner's damage modifiers (Using Magic for portals, adjust if needed)
-                        finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
-
-                        // Add % max life damage if flagged (for violent explosion)
-                        if (addLifePercentDamage)
+                        if (Vector2.DistanceSquared(npc.Center, explosionPosition) <= radiusSq)
                         {
-                            finalDamage += (int)(npc.lifeMax * 0.09f); // 10% max life bonus damage
+                            int finalDamage = baseDamage;
+                            // Apply owner's damage modifiers (Using Magic for portals, adjust if needed)
+                            finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
+
+                            // Add % max life damage if flagged (for violent explosion)
+                            if (addLifePercentDamage)
+                            {
+                                finalDamage += (int)(npc.lifeMax * 0.09f); // 10% max life bonus damage
+                            }
+
+                            int direction = Math.Sign(npc.Center.X - explosionPosition.X);
+                            if (direction == 0) direction = 1;
+
+                            owner.ApplyDamageToNPC(npc, finalDamage, knockback, direction, false); // Let ApplyDamageToNPC handle DamageClass now
                         }
-
-                        int direction = Math.Sign(npc.Center.X - explosionPosition.X);
-                        if (direction == 0) direction = 1;
-
-                        owner.ApplyDamageToNPC(npc, finalDamage, knockback, direction, false); // Let ApplyDamageToNPC handle DamageClass now
                     }
                 }
             }

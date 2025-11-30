@@ -25,6 +25,7 @@ namespace WakfuMod.Content.Projectiles
 
         private Vector2 aimDirection = Vector2.UnitX;
         private float headRotationActual = MathHelper.PiOver2;
+        private float targetRotation = 0f;
 
         private bool wasAimingLeft = false;
         // --- NUEVA CONSTANTE para Cooldown del Láser Especial ---
@@ -55,20 +56,44 @@ namespace WakfuMod.Content.Projectiles
             // Usaremos localAI[0] para el cooldown del láser especial
             if (Projectile.localAI[0] > 0) Projectile.localAI[0]--;
 
-            // --- Lógica de Objetivo (igual que antes) ---
-            NPC target = FindEnemyWithGrenade() ?? FindClosestEnemy(600f);
+            // --- Lógica de Objetivo (Sincronizada) ---
+            NPC target = null;
             Projectile grenadeTarget = null;
-            if (target == null)
-                grenadeTarget = FindGrenadeTarget();
-
-            float targetRotation = 0;
-            Vector2 targetCenter = Projectile.Center + Vector2.UnitX * Projectile.spriteDirection * 100; // Punto por defecto si no hay objetivo
+            Vector2 targetCenter = Projectile.Center + Vector2.UnitX * Projectile.spriteDirection * 100;
             bool hasValidTarget = false;
+
+            // Solo el dueño decide el objetivo
+            if (Projectile.owner == Main.myPlayer)
+            {
+                target = FindEnemyWithGrenade() ?? FindClosestEnemy(600f);
+                if (target == null)
+                    grenadeTarget = FindGrenadeTarget();
+
+                float newTargetIndex = -1f;
+                if (target != null) newTargetIndex = target.whoAmI;
+                // Podríamos usar un valor especial para grenadeTarget si fuera necesario, pero por ahora priorizamos NPC
+                
+                // Sincronizar si cambió el objetivo
+                if (Projectile.ai[0] != newTargetIndex)
+                {
+                    Projectile.ai[0] = newTargetIndex;
+                    Projectile.netUpdate = true;
+                }
+            }
+            else
+            {
+                // Clientes leen el objetivo del ai[0]
+                int targetIndex = (int)Projectile.ai[0];
+                if (targetIndex >= 0 && targetIndex < Main.maxNPCs && Main.npc[targetIndex].active)
+                {
+                    target = Main.npc[targetIndex];
+                }
+            }
 
             if (target != null) {
                 targetCenter = target.Center;
                 hasValidTarget = true;
-            } else if (grenadeTarget != null) {
+            } else if (grenadeTarget != null) { // Grenade target logic might need sync too if critical, but skipping for now
                 targetCenter = grenadeTarget.Center;
                 hasValidTarget = true;
             }
@@ -81,7 +106,10 @@ namespace WakfuMod.Content.Projectiles
                 wasAimingLeft = aimDirection.X < 0f;
 
                 // --- Disparo Normal (solo si hay objetivo y cooldown listo) ---
-                TryShootLaser(targetCenter); // El disparo normal sigue ocurriendo automáticamente
+                if (Projectile.owner == Main.myPlayer) // Solo dueño dispara
+                {
+                    TryShootLaser(targetCenter); 
+                }
             } else {
                  // Lógica para cuando no hay objetivo (igual que antes)
                  aimDirection = Vector2.UnitX * Projectile.spriteDirection; // Mira hacia adelante
@@ -102,7 +130,10 @@ namespace WakfuMod.Content.Projectiles
             AnimateHead();
 
             // --- Daño por Contacto (igual que antes) ---
-            CheckAndApplyContactDamage();
+            if (Main.netMode != NetmodeID.MultiplayerClient) // Solo servidor
+            {
+                CheckAndApplyContactDamage();
+            }
 
             // --- NUEVO: Comprobar y Disparar Láser Especial ---
             // Verifica la señal desde WakfuPlayer (ai[1] == 1f) y el cooldown local
@@ -111,13 +142,15 @@ namespace WakfuMod.Content.Projectiles
                  // Solo dispara si hay un objetivo válido al que apuntar
                  if (hasValidTarget)
                  {
-                    TryShootSpecialLaser(targetCenter); // Llama a la nueva función
+                    if (Projectile.owner == Main.myPlayer) // Solo dueño dispara
+                    {
+                        TryShootSpecialLaser(targetCenter); // Llama a la nueva función
+                    }
                     Projectile.localAI[0] = SpecialLaserCooldownTime; // Poner en cooldown
                  }
                  // Resetear la señal independientemente de si disparó o no
                  Projectile.ai[1] = 0f; // Resetea la señal
-                 // Sincronizar ai[1] y localAI[0] si es necesario para multijugador
-                 // Projectile.netUpdate = true;
+                 Projectile.netUpdate = true; // Sincronizar el reset de la señal
             }
         } // Fin AI
 

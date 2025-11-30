@@ -646,52 +646,32 @@ namespace WakfuMod.Content.Projectiles
                 return; // El daño de Frenesí se maneja por separado
             }
 
-
-
-            // Calcular Daño Porcentual Aleatorio (1% a 10%)
-            float minPercent = 0.01f;
-            float maxPercent = 0.08f;
-            float randomPercent = Main.rand.NextFloat(minPercent, maxPercent);
-            int calculatedDamage = Math.Max(1, (int)(target.lifeMax * randomPercent));
-
-            // --- Aplicar Daño Directamente con SimpleStrikeNPC (Usando Parámetros Posicionales) ---
-
-            if (hitDirection == 0) hitDirection = 1;
-
-            target.SimpleStrikeNPC(
-                calculatedDamage, // 1. damage (int)
-                hitDirection,     // 2. hitDirection (int, opcional, default 0)
-                Main.rand.Next(100) < owner.GetCritChance(DamageClass.Summon), // 3. crit (bool, opcional, default false) - Calcula crítico basado en el jugador
-                0.1f,             // 4. knockback (float, opcional, default 0f) <-- ¡Knockback bajo aquí!
-                DamageClass.Summon, // 5. damageType (int, opcional, default -1)
-                true              // 6. armorPenetration (bool, opcional, default false) <-- Ignorar defensa
-            );
-
-            // Aplicar Inmunidad
-            target.immune[Projectile.owner] = 45;
-
-            // Efectos Visuales/Sonoros
+            // Efectos Visuales/Sonoros (Cliente y Servidor para que todos lo oigan/vean)
             SoundEngine.PlaySound(SoundID.NPCHit1 with { Volume = 0.5f, Pitch = 0.2f }, Projectile.position);
             for (int i = 0; i < 3; i++)
             {
                 Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.Tin, hitDirection * 0.5f, -0.5f);
             }
-
-            // Aplicar daño (ModifyHitNPC se encarga del %)
-            owner.ApplyDamageToNPC(target, Projectile.damage, Projectile.knockBack, hitDirection, false, DamageClass.Summon);
-
-            // --- AÑADIR I-FRAMES ---
-            // Dar inmunidad al NPC contra ESTE JUGADOR durante el cooldown del ataque
-            // Si NormalAttackCooldown es 60, darle 60 ticks de inmunidad está bien.
-            if (NormalAttackCooldown > 0)
-            {
-                target.immune[Projectile.owner] = NormalAttackCooldown;
-            }
-
-            // --- FIN AÑADIR I-FRAMES ---
-
-            // Sonido y Frame de Ataque
             SoundEngine.PlaySound(SoundID.NPCHit1, Projectile.Center); // Sonido de golpe melee suave
+
+            // Lógica de Daño (Solo Servidor o Singleplayer)
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                // Calcular Daño Porcentual Aleatorio (1% a 10%)
+                float minPercent = 0.01f;
+                float maxPercent = 0.08f;
+                float randomPercent = Main.rand.NextFloat(minPercent, maxPercent);
+                int calculatedDamage = Math.Max(1, (int)(target.lifeMax * randomPercent));
+
+                // Aplicar daño (ModifyHitNPC se encarga del %)
+                owner.ApplyDamageToNPC(target, Projectile.damage, Projectile.knockBack, hitDirection, false, DamageClass.Summon);
+
+                // --- AÑADIR I-FRAMES ---
+                if (NormalAttackCooldown > 0)
+                {
+                    target.immune[Projectile.owner] = NormalAttackCooldown;
+                }
+            }
         }
 
         // --- PerformFrenzyAttack (Sin cambios principales) ---
@@ -701,31 +681,33 @@ namespace WakfuMod.Content.Projectiles
             Rectangle frenzyHitbox = Utils.CenteredRectangle(Projectile.Center, new Vector2(frenzyRadius * 2));
             SoundEngine.PlaySound(SoundID.NPCHit9 with { Volume = 0.6f, Pitch = 0.4f }, Projectile.Center);
 
-            for (int i = 0; i < Main.maxNPCs; i++)
-            {
-                NPC npc = Main.npc[i];
-                // Comprobar si puede ser golpeado Y SI NO ES YA INMUNE por un golpe anterior de este mismo ataque/jugador
-                if (npc.CanBeChasedBy(this, false) && npc.immune[Projectile.owner] <= 0 && frenzyHitbox.Intersects(npc.Hitbox))
-                {
-                    float knockback = 1f;
-                    int hitDirection = Math.Sign(npc.Center.X - Projectile.Center.X);
-                    if (hitDirection == 0) hitDirection = 1;
-
-                    // Aplicar daño (ModifyHitNPC se encarga del %)
-                    owner.ApplyDamageToNPC(npc, Projectile.damage, knockback, hitDirection, false, DamageClass.Summon);
-
-                    // --- AÑADIR I-FRAMES (MÁS CORTOS PARA FRENESÍ) ---
-                    // Queremos que coincida con el FrenzyAttackRate (30 ticks = 0.5 seg)
-                    if (FrenzyAttackRate > 0)
-                    {
-                        npc.immune[Projectile.owner] = FrenzyAttackRate;
-                    }
-
-                    // --- FIN AÑADIR I-FRAMES ---
-                }
-            }
             // Efecto visual (sin cambios)
             for (int i = 0; i < 5; i++) { Dust d = Dust.NewDustPerfect(Projectile.Center + Main.rand.NextVector2Circular(frenzyRadius * 0.8f, frenzyRadius * 0.8f), DustID.Blood, Main.rand.NextVector2Circular(1f, 1f), 0, default, 1.1f); d.noGravity = true; }
+
+            // Lógica de Daño (Solo Servidor o Singleplayer)
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC npc = Main.npc[i];
+                    // Comprobar si puede ser golpeado Y SI NO ES YA INMUNE por un golpe anterior de este mismo ataque/jugador
+                    if (npc.CanBeChasedBy(this, false) && npc.immune[Projectile.owner] <= 0 && frenzyHitbox.Intersects(npc.Hitbox))
+                    {
+                        float knockback = 1f;
+                        int hitDirection = Math.Sign(npc.Center.X - Projectile.Center.X);
+                        if (hitDirection == 0) hitDirection = 1;
+
+                        // Aplicar daño (ModifyHitNPC se encarga del %)
+                        owner.ApplyDamageToNPC(npc, Projectile.damage, knockback, hitDirection, false, DamageClass.Summon);
+
+                        // --- AÑADIR I-FRAMES (MÁS CORTOS PARA FRENESÍ) ---
+                        if (FrenzyAttackRate > 0)
+                        {
+                            npc.immune[Projectile.owner] = FrenzyAttackRate;
+                        }
+                    }
+                }
+            }
         }
 
 
