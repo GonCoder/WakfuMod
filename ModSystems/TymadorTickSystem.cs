@@ -7,12 +7,16 @@ namespace WakfuMod.ModSystems // Asegúrate que el namespace es correcto
     {
         // Un conjunto para almacenar los whoAmI de las bombas detonadas ESTE tick
         public static HashSet<int> DetonatedThisTick = new HashSet<int>();
+        
+        // Un conjunto para almacenar los NPCs golpeados por la explosión en cadena ESTE tick
+        public static HashSet<int> NPCsHitByChainThisTick = new HashSet<int>();
 
         // Este método se llama al final de cada actualización del mundo
         public override void PostUpdateWorld()
         {
             // Limpiar la lista al final del tick para el siguiente
             DetonatedThisTick.Clear();
+            NPCsHitByChainThisTick.Clear();
         }
 
          // También podrías usar PreUpdateWorld si prefieres limpiar al inicio

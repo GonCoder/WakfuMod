@@ -6,6 +6,7 @@ using WakfuMod.Content.Buffs;
 using System;
 using Terraria.Audio;
 using Microsoft.Xna.Framework.Graphics;
+using WakfuMod.jugador; // Para WakfuPlayer
 
 namespace WakfuMod.Content.Projectiles
 {
@@ -657,14 +658,23 @@ namespace WakfuMod.Content.Projectiles
             // Lógica de Daño (Solo Servidor o Singleplayer)
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                // Calcular Daño Porcentual Aleatorio (1% a 10%)
-                float minPercent = 0.01f;
-                float maxPercent = 0.08f;
-                float randomPercent = Main.rand.NextFloat(minPercent, maxPercent);
-                int calculatedDamage = Math.Max(1, (int)(target.lifeMax * randomPercent));
+                if (owner.GetModPlayer<WakfuPlayer>().BalanceMode)
+                {
+                    int damage = 10;
+                    damage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(damage);
+                    owner.ApplyDamageToNPC(target, damage, Projectile.knockBack, hitDirection, false, DamageClass.Summon);
+                }
+                else
+                {
+                    // Calcular Daño Porcentual Aleatorio (1% a 10%)
+                    float minPercent = 0.01f;
+                    float maxPercent = 0.08f;
+                    float randomPercent = Main.rand.NextFloat(minPercent, maxPercent);
+                    int calculatedDamage = Math.Max(1, (int)(target.lifeMax * randomPercent));
 
-                // Aplicar daño (ModifyHitNPC se encarga del %)
-                owner.ApplyDamageToNPC(target, Projectile.damage, Projectile.knockBack, hitDirection, false, DamageClass.Summon);
+                    // Aplicar daño (ModifyHitNPC se encarga del %)
+                    owner.ApplyDamageToNPC(target, Projectile.damage, Projectile.knockBack, hitDirection, false, DamageClass.Summon);
+                }
 
                 // --- AÑADIR I-FRAMES ---
                 if (NormalAttackCooldown > 0)
@@ -674,7 +684,7 @@ namespace WakfuMod.Content.Projectiles
             }
         }
 
-        // --- PerformFrenzyAttack (Sin cambios principales) ---
+        // --- PerformFrenzyAttack ---
         private void PerformFrenzyAttack(Player owner)
         {
             float frenzyRadius = 60f;
@@ -697,8 +707,17 @@ namespace WakfuMod.Content.Projectiles
                         int hitDirection = Math.Sign(npc.Center.X - Projectile.Center.X);
                         if (hitDirection == 0) hitDirection = 1;
 
-                        // Aplicar daño (ModifyHitNPC se encarga del %)
-                        owner.ApplyDamageToNPC(npc, Projectile.damage, knockback, hitDirection, false, DamageClass.Summon);
+                        if (owner.GetModPlayer<WakfuPlayer>().BalanceMode)
+                        {
+                            int damage = 30;
+                            damage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(damage);
+                            owner.ApplyDamageToNPC(npc, damage, knockback, hitDirection, false, DamageClass.Summon);
+                        }
+                        else
+                        {
+                            // Aplicar daño (ModifyHitNPC se encarga del %)
+                            owner.ApplyDamageToNPC(npc, Projectile.damage, knockback, hitDirection, false, DamageClass.Summon);
+                        }
 
                         // --- AÑADIR I-FRAMES (MÁS CORTOS PARA FRENESÍ) ---
                         if (FrenzyAttackRate > 0)
@@ -750,6 +769,12 @@ namespace WakfuMod.Content.Projectiles
         // --- ModifyHitNPC (Sin cambios) ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
+            Player owner = Main.player[Projectile.owner];
+            if (owner.GetModPlayer<WakfuPlayer>().BalanceMode)
+            {
+                return;
+            }
+
             bool isFrenzyAttack = Projectile.localAI[0] > 0;
             float percentBonus = isFrenzyAttack ? 0.025f : 0.05f; // 2.5% frenesí, 5% normal
             float percentDamage = Math.Max(1f, target.lifeMax * percentBonus); // Mínimo 1

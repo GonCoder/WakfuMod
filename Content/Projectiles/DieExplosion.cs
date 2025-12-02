@@ -32,6 +32,14 @@ namespace WakfuMod.Content.Projectiles
 
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
+            // Si ai[0] es negativo, es Modo Balance (daño fijo ya calculado en Projectile.damage)
+            if (Projectile.ai[0] < 0)
+            {
+                // No hacemos nada, dejamos que el daño base (Projectile.damage) actúe.
+                // El daño ya fue escalado al spawnear.
+                return;
+            }
+
             // Leer los porcentajes de daño pasados en los campos de IA
             float minDamagePercent = Projectile.ai[0] / 10000f;
             float maxDamagePercent = Projectile.ai[1] / 10000f;

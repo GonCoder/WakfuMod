@@ -239,12 +239,19 @@ namespace WakfuMod.Content.Projectiles
             
 
             // Spawnea el nuevo proyectil láser
+            int damage = 45;
+            var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+            if (wakfuPlayer.BalanceMode)
+            {
+                damage = 25;
+            }
+
             Projectile.NewProjectile(
                 Projectile.GetSource_FromThis("SpecialLaser"), // Fuente diferente
                 shootFrom,
                 shootDirection, // El proyectil láser especial calculará su propio camino
                 ModContent.ProjectileType<SteamerSpecialLaser>(), // <<<--- NUEVO TIPO DE PROYECTIL
-                45, // Daño del láser especial (ajusta)
+                damage, // Daño del láser especial (ajusta)
                 2f, // Knockback (ajusta)
                 owner.whoAmI
                 // Puedes pasar información extra usando ai[] si el láser la necesita

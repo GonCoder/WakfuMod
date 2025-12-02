@@ -24,7 +24,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Toross
         public override void SetStaticDefaults()
         {
             // DisplayName.SetDefault("Toross");
-            Main.npcFrameCount[NPC.type] = 9;
+            Main.npcFrameCount[NPC.type] = 13;
             
             NPCID.Sets.MPAllowedEnemies[Type] = true;
             NPCID.Sets.BossBestiaryPriority.Add(Type);

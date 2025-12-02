@@ -10,6 +10,7 @@ using Terraria.ID;
 using Terraria.Audio;
 using WakfuMod.Content.Buffs;   // Para TymadorCableShockDebuff
 using WakfuMod.ModSystems;      // Para TymadorBombManager y TymadorTickSystem
+using WakfuMod.jugador;         // Para WakfuPlayer
 using ReLogic.Content;
 using Terraria.DataStructures;          // Para Asset<T>
 
@@ -239,7 +240,7 @@ namespace WakfuMod.Content.Projectiles
             if (myIndex > 0 && myIndex < sortedBombs.Count && myIndex < 3) // Limita a cables entre 1-2 y 2-3
             {
                 Projectile prevBomb = sortedBombs[myIndex - 1];
-                ApplyDamageBetween(prevBomb, Projectile);
+                ApplyDamageBetween(prevBomb, Projectile, ownerBombs.Count);
             }
 
             // Nota: No comprobamos hacia adelante. La siguiente bomba en la secuencia
@@ -247,17 +248,27 @@ namespace WakfuMod.Content.Projectiles
         }
 
         // --- Método para Aplicar Daño del Cable ---
-        private void ApplyDamageBetween(Projectile bombA, Projectile bombB)
+        private void ApplyDamageBetween(Projectile bombA, Projectile bombB, int totalBombs)
         {
             Vector2 start = bombA.Center;
             Vector2 end = bombB.Center;
+            Player owner = Main.player[Projectile.owner];
+            bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
+
             // --- Define aquí el daño y knockback del CABLE ---
-            // Podría escalar con el Tier de las bombas conectadas, o con stats del jugador
-            int cableBaseDamage = 15 + (Tier * 2); // Ejemplo: Daño base + extra por Tier de esta bomba
+            int cableBaseDamage = 0;
+            if (balanceMode)
+            {
+                cableBaseDamage = 5 * totalBombs;
+            }
+            else
+            {
+                cableBaseDamage = 15 + (Tier * 2); // Ejemplo: Daño base + extra por Tier de esta bomba
+            }
+
             float cableKnockback = 2f;
             float collisionWidth = 12f; // Ancho de la "hitbox" del cable
             int cableHitCooldown = 60; // <--- ¡NUEVO! Cooldown en ticks (60 = 1 segundo)
-            Player owner = Main.player[Projectile.owner];
 
             // Iterar sobre los NPCs
             for (int i = 0; i < Main.maxNPCs; i++)
@@ -274,8 +285,15 @@ namespace WakfuMod.Content.Projectiles
                     if (Collision.CheckAABBvLineCollision(npc.position, npc.Size, start, end, collisionWidth, ref collisionPoint))
                     {
                         // Calcular daño final aplicando bonificaciones del jugador
-                        // Usamos Ranged para que coincida con la explosión, pero puedes cambiarlo
-                        int finalDamage = (int)owner.GetDamage(DamageClass.Ranged).ApplyTo(cableBaseDamage);
+                        int finalDamage = 0;
+                        if (balanceMode)
+                        {
+                            finalDamage = (int)owner.GetDamage(DamageClass.Melee).ApplyTo(cableBaseDamage);
+                        }
+                        else
+                        {
+                            finalDamage = (int)owner.GetDamage(DamageClass.Ranged).ApplyTo(cableBaseDamage);
+                        }
 
                         // Aplicar daño
                         NPC.HitInfo hitInfo = new NPC.HitInfo
@@ -284,7 +302,7 @@ namespace WakfuMod.Content.Projectiles
                             Knockback = cableKnockback,
                             // Dirección del golpe basada en la posición relativa al centro del cable (aproximado)
                             HitDirection = (npc.Center.X < (start.X + end.X) / 2f) ? -1 : 1,
-                            DamageType = DamageClass.Ranged // O la que corresponda
+                            DamageType = balanceMode ? DamageClass.Melee : DamageClass.Ranged
                         };
 
                         // Solo el servidor o el dueño deben llamar a StrikeNPC en MP
@@ -369,17 +387,35 @@ namespace WakfuMod.Content.Projectiles
             // Remover del Manager después
             TymadorBombManager.RemoveBomb(Projectile);
 
+            Player owner = Main.player[Projectile.owner];
+            bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
+
             // --- Cálculos de Explosión ---
             float baseRadius = 60f;
             float radius = Tier switch { 1 => baseRadius * 3f, 2 => baseRadius * 6f, _ => baseRadius };
-            int baseDamage = Tier switch
+            
+            int baseDamage = 0;
+            if (balanceMode)
             {
-                1 => 20 + 10, // Tier 1 = 30 base
-                2 => 20 + 20, // Tier 2 = 40 base
-                _ => 20 // Tier 0 = 20 base
-            };    
+                baseDamage = Tier switch
+                {
+                    0 => 15,
+                    1 => 35,
+                    2 => 55,
+                    _ => 15
+                };
+            }
+            else
+            {
+                baseDamage = Tier switch
+                {
+                    1 => 20 + 10, // Tier 1 = 30 base
+                    2 => 20 + 20, // Tier 2 = 40 base
+                    _ => 20 // Tier 0 = 20 base
+                };
+            }
+
             float bonusPercent = Tier == 0 ? 0.02f : Tier == 1 ? 0.04f: 0.06f;
-            Player owner = Main.player[Projectile.owner];
 
             // --- Sonido y Efectos Visuales (como antes) ---
             SoundEngine.PlaySound(SoundID.Item14, Projectile.Center);
@@ -451,6 +487,46 @@ namespace WakfuMod.Content.Projectiles
                     }
                 }
 
+                // --- CALCULAR DAÑO TOTAL DEL COMBO (Suma de todas las bombas) ---
+                int totalComboBaseDamage = 0;
+                float totalComboPercentBonus = 0f;
+
+                // 1. Añadir ESTA bomba
+                {
+                    int thisBase = 0;
+                    if (balanceMode)
+                    {
+                        thisBase = Tier switch { 0 => 15, 1 => 35, 2 => 55, _ => 15 };
+                        totalComboBaseDamage += (int)(thisBase * (1f + kickDamageBonusPercent));
+                    }
+                    else
+                    {
+                        thisBase = Tier switch { 1 => 30, 2 => 40, _ => 20 };
+                        totalComboBaseDamage += thisBase;
+                        totalComboPercentBonus += (Tier == 0 ? 0.02f : Tier == 1 ? 0.04f : 0.06f) + kickDamageBonusPercent;
+                    }
+                }
+
+                // 2. Añadir OTRAS bombas
+                foreach (var p in ownerBombs)
+                {
+                    if (p.ModProjectile is TymadorBomb b)
+                    {
+                        int bBase = 0;
+                        if (balanceMode)
+                        {
+                            bBase = b.Tier switch { 0 => 15, 1 => 35, 2 => 55, _ => 15 };
+                            totalComboBaseDamage += (int)(bBase * (1f + b.kickDamageBonusPercent));
+                        }
+                        else
+                        {
+                            bBase = b.Tier switch { 1 => 30, 2 => 40, _ => 20 };
+                            totalComboBaseDamage += bBase;
+                            totalComboPercentBonus += (b.Tier == 0 ? 0.02f : b.Tier == 1 ? 0.04f : 0.06f) + b.kickDamageBonusPercent;
+                        }
+                    }
+                }
+
                 if (ownerBombs.Count > 0)
                 {
                     // Añadir esta bomba temporalmente para ordenar y encontrar vecinos
@@ -498,22 +574,34 @@ namespace WakfuMod.Content.Projectiles
                                     float collisionPoint = 0f;
                                     if (Collision.CheckAABBvLineCollision(npc.position, npc.Size, start, end, collisionWidth, ref collisionPoint))
                                     {
+                                        // Comprobar si ya fue golpeado por la cadena este tick
+                                        if (TymadorTickSystem.NPCsHitByChainThisTick.Contains(npc.whoAmI)) continue;
+
                                         // ¡NPC está tocando un cable conectado a la bomba que explota! Aplicar daño de EXPLOSIÓN.
-                                        int dmg = baseDamage
-                                        + (int)(npc.lifeMax * bonusPercent) // Bono por Tier
-                                        + (int)(npc.lifeMax * kickDamageBonusPercent); // Bono por Patadas
-                                        dmg = (int)owner.GetDamage(DamageClass.Generic).ApplyTo(dmg);
+                                        int dmg = 0;
+                                        if (balanceMode)
+                                        {
+                                            dmg = totalComboBaseDamage;
+                                            dmg = (int)owner.GetDamage(DamageClass.Melee).ApplyTo(dmg);
+                                        }
+                                        else
+                                        {
+                                            dmg = totalComboBaseDamage
+                                            + (int)(npc.lifeMax * totalComboPercentBonus);
+                                            dmg = (int)owner.GetDamage(DamageClass.Generic).ApplyTo(dmg);
+                                        }
 
                                         NPC.HitInfo hitInfo = new NPC.HitInfo
                                         {
                                             Damage = dmg,
                                             Knockback = 4f + Tier * 1.5f,
                                             HitDirection = Math.Sign(npc.Center.X - Projectile.Center.X),
-                                            DamageType = DamageClass.Generic
+                                            DamageType = balanceMode ? DamageClass.Melee : DamageClass.Generic
                                             // ¡NO comprobamos ni aplicamos el debuff del cable aquí!
                                         };
                                         npc.StrikeNPC(hitInfo);
                                         hitNpcsThisExplosion.Add(i); // Marcar como golpeado por esta explosión
+                                        TymadorTickSystem.NPCsHitByChainThisTick.Add(npc.whoAmI); // Marcar globalmente para la cadena
 
                                         // Opcional: Podrías aplicar una inmunidad MUY corta (e.g., 2-5 ticks) aquí
                                         // para evitar que múltiples explosiones EN CADENA en el MISMO TICK golpeen varias veces.
@@ -538,17 +626,26 @@ namespace WakfuMod.Content.Projectiles
                         !hitNpcsThisExplosion.Contains(i) && // <<<--- AÑADIDO: No golpear si ya lo hizo el cable
                         Vector2.DistanceSquared(npc.Center, Projectile.Center) <= radius * radius)
                     {
-                        int dmg = baseDamage
-                      + (int)(npc.lifeMax * bonusPercent) // Bono por Tier
-                      + (int)(npc.lifeMax * kickDamageBonusPercent); // Bono por Patadas
-                        dmg = (int)owner.GetDamage(DamageClass.Generic).ApplyTo(dmg);
+                        int dmg = 0;
+                        if (balanceMode)
+                        {
+                            dmg = (int)(baseDamage * (1f + kickDamageBonusPercent));
+                            dmg = (int)owner.GetDamage(DamageClass.Melee).ApplyTo(dmg);
+                        }
+                        else
+                        {
+                            dmg = baseDamage
+                            + (int)(npc.lifeMax * bonusPercent) // Bono por Tier
+                            + (int)(npc.lifeMax * kickDamageBonusPercent); // Bono por Patadas
+                            dmg = (int)owner.GetDamage(DamageClass.Generic).ApplyTo(dmg);
+                        }
 
                         NPC.HitInfo hitInfo = new NPC.HitInfo
                         {
                             Damage = dmg,
                             Knockback = 4f + Tier * 1.5f,
                             HitDirection = Math.Sign(npc.Center.X - Projectile.Center.X),
-                            DamageType = DamageClass.Generic
+                            DamageType = balanceMode ? DamageClass.Melee : DamageClass.Generic
                         };
                         npc.StrikeNPC(hitInfo);
                         // No necesitamos añadir a hitNpcsThisExplosion aquí porque ya es el final de la lógica para este NPC.
@@ -575,7 +672,7 @@ namespace WakfuMod.Content.Projectiles
             Vector2 origin = tex.Size() / 2f; // Origen en el centro de la textura
 
             // --- NUEVO: Calcular Color de Tinte ---
-            float maxBonus = 0.30f; // El mismo límite que usamos antes
+            float maxBonus = 1.0f; // El mismo límite que usamos antes
                                     // Calcula la intensidad del rojo (0 a 1) basado en qué tan cerca está el bono del máximo
                                     // Asegúrate de que kickDamageBonusPercent no sea negativo por algún error
             float bonusRatio = Math.Clamp(kickDamageBonusPercent / maxBonus, 0f, 3f);

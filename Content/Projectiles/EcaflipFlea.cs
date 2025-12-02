@@ -4,7 +4,8 @@ using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using System;
 using Terraria.Audio;
-using System.Collections.Generic; // Para el diccionario de objetivos
+using WakfuMod.jugador;
+using System.Collections.Generic; // Para WakfuPlayer
 
 namespace WakfuMod.Content.Projectiles
 {
@@ -183,7 +184,18 @@ namespace WakfuMod.Content.Projectiles
             if (distance < 30f && Projectile.localAI[0] >= TickRate)
             {
                 Projectile.localAI[0] = 0;
-                target.StrikeNPC(new NPC.HitInfo() { Damage = 1, Knockback = 0f, HitDirection = 0 });
+                
+                Player owner = Main.player[Projectile.owner];
+                bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
+                int damage = 1;
+
+                if (balanceMode)
+                {
+                    damage = 5;
+                    damage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(damage);
+                }
+
+                target.StrikeNPC(new NPC.HitInfo() { Damage = damage, Knockback = 0f, HitDirection = 0 });
                 Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.Blood);
                 SoundEngine.PlaySound(SoundID.NPCHit1 with {Volume = 0.2f, Pitch = 0.5f}, Projectile.position);
             }
@@ -201,7 +213,12 @@ namespace WakfuMod.Content.Projectiles
             if (distance < 50f && Projectile.localAI[0] >= TickRate)
             {
                 Projectile.localAI[0] = 0;
-                target.Heal(1);
+                
+                Player owner = Main.player[Projectile.owner];
+                bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
+                int heal = balanceMode ? 5 : 1;
+
+                target.Heal(heal);
                 Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.GreenFairy);
                 SoundEngine.PlaySound(SoundID.Item4 with {Volume = 0.2f, Pitch = 0.8f}, Projectile.position);
             }

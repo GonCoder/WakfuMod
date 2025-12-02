@@ -8,7 +8,8 @@ using System;
 using WakfuMod;
 using Terraria.Audio;
 using static Humanizer.In;
-using WakfuMod.Content.Projectiles; // Para acceder a WakfuMod y su enum de mensajes de red
+using WakfuMod.jugador;
+using WakfuMod.Content.Projectiles; // Para acceder a WakfuPlayer
 
 namespace WakfuMod.ModSystems
 {
@@ -172,8 +173,27 @@ namespace WakfuMod.ModSystems
         {
             // --- 1. Definir los parámetros de la explosión ---
             int size = isLarge ? 1800 : 600; // Tamaño de la hitbox (ancho y alto)
-            float minDamagePercent = isLarge ? 0.30f : 0.10f;
-            float maxDamagePercent = isLarge ? 0.50f : 0.30f;
+            
+            bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
+            int damage = 1;
+            float ai0 = 0;
+            float ai1 = 0;
+
+            if (balanceMode)
+            {
+                // Modo Balance: Daño fijo escalado con Invocación
+                int baseDamage = isLarge ? 666 : 100;
+                damage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(baseDamage);
+                ai0 = -1f; // Señal para DieExplosion de que es daño fijo
+            }
+            else
+            {
+                // Modo Normal: Daño porcentual
+                float minDamagePercent = isLarge ? 0.30f : 0.10f;
+                float maxDamagePercent = isLarge ? 0.50f : 0.30f;
+                ai0 = minDamagePercent * 10000f;
+                ai1 = maxDamagePercent * 10000f;
+            }
 
             // --- 2. Crear el proyectil ---
             // Usamos Projectile.NewProjectile, que devuelve el índice (el "whoAmI") del proyectil creado.
@@ -182,12 +202,12 @@ namespace WakfuMod.ModSystems
                 position, // Spawnea en el centro de la explosión
                 Vector2.Zero, // Sin velocidad
                 ModContent.ProjectileType<DieExplosion>(),
-                1,  // Daño base 1 (se sobrescribe en ModifyHitNPC)
+                damage,  // Daño calculado o 1
                 0f, // Knockback 0 (se sobrescribe en ModifyHitNPC)
                 owner.whoAmI,
                 // Pasar los porcentajes de daño a través de ai[0] y ai[1]
-                ai0: minDamagePercent * 10000f,
-                ai1: maxDamagePercent * 10000f
+                ai0: ai0,
+                ai1: ai1
             );
 
             // --- 3. Modificar el proyectil recién creado ---
@@ -203,6 +223,11 @@ namespace WakfuMod.ModSystems
                 explosionProjectile.height = size;
                 // Centramos la hitbox en la posición de spawn
                 explosionProjectile.Center = position;
+
+                if (balanceMode)
+                {
+                    explosionProjectile.DamageType = DamageClass.Summon;
+                }
 
                 // Marcamos para sincronizar estos cambios en multijugador
                 explosionProjectile.netUpdate = true;

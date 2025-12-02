@@ -4,6 +4,7 @@ using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using System;
 using Terraria.Audio;
+using WakfuMod.jugador; // Para WakfuPlayer
 
 namespace WakfuMod.Content.Projectiles
 {
@@ -67,6 +68,13 @@ namespace WakfuMod.Content.Projectiles
                             packet.WriteVector2(newVelocity);
                             packet.Send();
 
+                            // Curación en Modo Balance
+                            if (owner.GetModPlayer<WakfuPlayer>().BalanceMode)
+                            {
+                                target.Heal(100);
+                                CombatText.NewText(target.getRect(), Color.Green, "+100 HP");
+                            }
+
                             // Marcar como usado para no spamear paquetes (un golpe por uso)
                             Projectile.localAI[0] = 1; 
                             
@@ -126,8 +134,17 @@ namespace WakfuMod.Content.Projectiles
 
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            // Daño del 5% de la vida máxima
-            modifiers.SourceDamage.Base = target.lifeMax * 0.05f;
+            Player owner = Main.player[Projectile.owner];
+            if (owner.GetModPlayer<WakfuPlayer>().BalanceMode)
+            {
+                modifiers.SourceDamage.Base = 50; // Daño base fijo
+                // El daño se escalará con Summon porque Projectile.DamageType es Summon
+            }
+            else
+            {
+                // Daño del 5% de la vida máxima
+                modifiers.SourceDamage.Base = target.lifeMax * 0.05f;
+            }
             // Knockback muy fuerte
             modifiers.Knockback.Base = 18f;
         }
@@ -137,7 +154,5 @@ namespace WakfuMod.Content.Projectiles
             // Evitar golpear a los Town NPCs
             return !target.townNPC;
         }
-
-
     }
 }

@@ -31,6 +31,21 @@ namespace WakfuMod.Content.Projectiles
 
         public override void AI()
         {
+            // Actualizar DamageType según el modo
+            Player owner = Main.player[Projectile.owner];
+            if (owner.active && !owner.dead)
+            {
+                var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+                if (wakfuPlayer.BalanceMode)
+                {
+                    Projectile.DamageType = DamageClass.Ranged;
+                }
+                else
+                {
+                    Projectile.DamageType = DamageClass.Summon;
+                }
+            }
+
             Projectile.rotation = Projectile.velocity.ToRotation();
 
             // Homing muy fuerte
@@ -82,10 +97,8 @@ namespace WakfuMod.Content.Projectiles
             var wakfuPlayer = Main.player[Projectile.owner].GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
             if (wakfuPlayer.BalanceMode)
             {
-                float baseDamage = 10f;
-                float damageMult = Main.player[Projectile.owner].GetDamage(DamageClass.Ranged).Multiplicative;
-                modifiers.FinalDamage *= 0;
-                modifiers.FlatBonusDamage += baseDamage * damageMult;
+                // En modo balanceado, dejamos que el proyectil haga su daño natural (que viene del Item: 10 * Ranged)
+                // No modificamos nada aquí.
             }
             else
             {

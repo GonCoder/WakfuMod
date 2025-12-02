@@ -20,6 +20,9 @@ namespace WakfuMod.Content.Projectiles
         private const float ExplosionRadius = 80f; // Radio de la explosión final
         private const int ExplosionDustCount = 85; // Cantidad de polvo en la explosión
 
+        // --- Lista de objetivos ya golpeados para evitar repetir ---
+        private System.Collections.Generic.List<int> _hitTargets = new System.Collections.Generic.List<int>();
+
         public override void SetStaticDefaults() {
              ProjectileID.Sets.TrailCacheLength[Type] = 8;
              ProjectileID.Sets.TrailingMode[Type] = 0;
@@ -39,7 +42,7 @@ namespace WakfuMod.Content.Projectiles
             Projectile.extraUpdates = 1; // Mantiene la velocidad extra
             Projectile.ignoreWater = true;
             Projectile.usesLocalNPCImmunity = true;
-            Projectile.localNPCHitCooldown = 10;
+            Projectile.localNPCHitCooldown = -1;
         }
 
         public override void OnSpawn(IEntitySource source) {
@@ -108,7 +111,8 @@ namespace WakfuMod.Content.Projectiles
             float minDstSq = maxDist * maxDist;
             for (int i=0; i < Main.maxNPCs; i++) {
                  NPC npc = Main.npc[i];
-                 if (npc.CanBeChasedBy(Projectile, false)) {
+                 // Añadimos chequeo: Si ya está en la lista de golpeados, lo ignoramos
+                 if (npc.CanBeChasedBy(Projectile, false) && !_hitTargets.Contains(npc.whoAmI)) {
                      float distSq = Projectile.DistanceSQ(npc.Center);
                      if (distSq < minDstSq) {
                          // --- Opcional: Chequeo de línea de visión ---
@@ -123,16 +127,20 @@ namespace WakfuMod.Content.Projectiles
             return closest;
         }
 
-
        // --- OnHitNPC (Sin cambios respecto a tu versión anterior) ---
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone) {
+            // Registrar el enemigo golpeado para no volver a perseguirlo
+            if (!_hitTargets.Contains(target.whoAmI)) {
+                _hitTargets.Add(target.whoAmI);
+            }
+
             Player owner = Main.player[Projectile.owner];
             var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
             int extraDamage = 0;
             
             if (wakfuPlayer.BalanceMode)
             {
-                extraDamage = (int)(10f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
+                extraDamage = (int)(5f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
             }
             else
             {
@@ -189,7 +197,7 @@ namespace WakfuMod.Content.Projectiles
                         int percentDamage = 0;
                         if (wakfuPlayer.BalanceMode)
                         {
-                             percentDamage = (int)(10f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
+                             percentDamage = (int)(5f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
                         }
                         else
                         {

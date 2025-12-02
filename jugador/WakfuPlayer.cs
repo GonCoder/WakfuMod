@@ -1123,7 +1123,31 @@ namespace WakfuMod.jugador
             BalanceMode = !BalanceMode;
             string status = BalanceMode ? "ON (Green)" : "OFF (Red)";
             Color color = BalanceMode ? Color.Green : Color.Red;
-            Main.NewText($"Wakfu Balance Mode: {status}", color);
+
+            string scalingText = "";
+            switch (claseElegida)
+            {
+                case WakfuClase.Selatrop:
+                    scalingText = " - You scale with Ranged damage.";
+                    break;
+                case WakfuClase.Yopuka:
+                    scalingText = " - You scale with Melee damage.";
+                    break;
+                case WakfuClase.Steamer:
+                    scalingText = BalanceMode ? " - You scale with Ranged damage." : " - You scale with Summon damage.";
+                    break;
+                case WakfuClase.Tymador:
+                    scalingText = " - You scale with Melee damage.";
+                    break;
+                case WakfuClase.Zurcarac:
+                    scalingText = " - You scale with Summon damage.";
+                    break;
+                case WakfuClase.Xelor:
+                    scalingText = " - You scale with Magic damage.";
+                    break;
+            }
+
+            Main.NewText($"Wakfu Balance Mode: {status}{scalingText}", color);
         }
 
         // --- Desconexión ---

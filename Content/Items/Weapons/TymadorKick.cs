@@ -62,9 +62,24 @@ namespace WakfuMod.Content.Items.Weapons // Reemplaza WakfuMod si es necesario
         // Habilitar Clic Derecho
         public override bool AltFunctionUse(Player player) => true;
 
+        public override void UpdateInventory(Player player)
+        {
+            bool balanceMode = player.GetModPlayer<WakfuPlayer>().BalanceMode;
+            if (balanceMode)
+            {
+                Item.damage = 10; // Mostrar daño base de patada floja
+            }
+            else
+            {
+                Item.damage = KickWeak_Damage;
+            }
+        }
+
         // Configurar estadísticas según el clic
         public override bool CanUseItem(Player player)
         {
+            bool balanceMode = player.GetModPlayer<WakfuPlayer>().BalanceMode;
+
             // Prevenir usar si ya hay una patada activa? Opcional.
             // if (player.ownedProjectileCounts[ModContent.ProjectileType<TymadorKickProjectile>()] > 0) return false;
 
@@ -72,7 +87,7 @@ namespace WakfuMod.Content.Items.Weapons // Reemplaza WakfuMod si es necesario
             {
                 Item.useTime = KickStrong_UseTime;
                 Item.useAnimation = KickStrong_UseTime;
-                Item.damage = KickStrong_Damage;
+                Item.damage = balanceMode ? 20 : KickStrong_Damage;
                 Item.knockBack = KickStrong_Knockback;
                  Item.UseSound = SoundID.Item1 with { Pitch = -0.6f, Volume = 2f }; // Sonido más grave/fuerte
             }
@@ -80,7 +95,7 @@ namespace WakfuMod.Content.Items.Weapons // Reemplaza WakfuMod si es necesario
             {
                 Item.useTime = KickWeak_UseTime;
                 Item.useAnimation = KickWeak_UseTime;
-                Item.damage = KickWeak_Damage;
+                Item.damage = balanceMode ? 10 : KickWeak_Damage;
                 Item.knockBack = KickWeak_Knockback;
                 Item.UseSound = SoundID.Item1 with { Pitch = 0.8f, Volume = 2f }; // Sonido más agudo/rápido
             }
@@ -99,6 +114,18 @@ namespace WakfuMod.Content.Items.Weapons // Reemplaza WakfuMod si es necesario
             // Determinar la fuerza de la patada a las bombas
             float bombKickForce = (player.altFunctionUse == 2) ? KickStrong_BombForce : KickWeak_BombForce;
 
+            // RECALCULAR DAÑO para asegurar que sea correcto (especialmente en Balance Mode)
+            bool balanceMode = player.GetModPlayer<WakfuPlayer>().BalanceMode;
+            int baseDamageToUse = 0;
+
+            if (player.altFunctionUse == 2) // Clic Derecho
+                baseDamageToUse = balanceMode ? 20 : KickStrong_Damage;
+            else // Clic Izquierdo
+                baseDamageToUse = balanceMode ? 10 : KickWeak_Damage;
+
+            // Aplicar modificadores de daño del jugador (Melee)
+            int finalDamage = (int)player.GetDamage(DamageClass.Melee).ApplyTo(baseDamageToUse);
+
             // Spawnear el proyectil que contiene la animación y la lógica
             Projectile.NewProjectile(
                 source,
@@ -107,7 +134,7 @@ namespace WakfuMod.Content.Items.Weapons // Reemplaza WakfuMod si es necesario
                 // Pero podemos pasar la dirección del jugador
                 new Vector2(player.direction, 0f),
                 ModContent.ProjectileType<TymadorKickProjectile>(),
-                damage, // Daño configurado en CanUseItem
+                finalDamage, // Usar daño recalculado
                 knockback, // Knockback configurado en CanUseItem
                 player.whoAmI,
                 // Usar ai[0] para pasar la fuerza de la patada a la bomba

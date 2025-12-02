@@ -62,6 +62,21 @@ namespace WakfuMod.Content.Items.Weapons
             Item.noUseGraphic = false;
         }
 
+        public override void UpdateInventory(Player player)
+        {
+            var wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+            if (wakfuPlayer.BalanceMode)
+            {
+                Item.DamageType = DamageClass.Ranged;
+                Item.damage = 10;
+            }
+            else
+            {
+                Item.DamageType = DamageClass.Summon;
+                Item.damage = 1;
+            }
+        }
+
         public override void SetStaticDefaults()
         {
             // DisplayName.SetDefault("Steamer Pistol"); // Usar .hjson

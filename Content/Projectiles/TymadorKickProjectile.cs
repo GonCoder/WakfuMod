@@ -203,7 +203,7 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
                                 tymadorBombInstance.State = 1;
                                 tymadorBombInstance.Projectile.tileCollide = true;
                             }
-                            float maxBonus = 0.40f; // Límite del 40%
+                            float maxBonus = 1.0f; // Límite del 100%
 
                             // Calcula el nuevo bono potencial
                             float bonusToAdd = strongKick ? 0.05f : 0.01f; // 2% fuerte, 1% débil
@@ -494,12 +494,18 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
          // --- NUEVO: ModifyHitNPC ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            // --- 1. Calcular Daño Porcentual Adicional ---
-            float percentOfMaxLife = IsStrongKick ? 0.04f : 0.01f; // 4% para fuerte, 1% para débil
-            int percentDamage = Math.Max(1, (int)(target.lifeMax * percentOfMaxLife)); // Mínimo 1 de daño porcentual
+            Player owner = Main.player[Projectile.owner];
+            bool balanceMode = owner.GetModPlayer<WakfuPlayer>().BalanceMode;
 
-            // --- 2. Añadir el Daño Porcentual al Daño Base usando Flat ---
-            modifiers.SourceDamage.Flat += percentDamage;
+            if (!balanceMode)
+            {
+                // --- 1. Calcular Daño Porcentual Adicional ---
+                float percentOfMaxLife = IsStrongKick ? 0.04f : 0.01f; // 4% para fuerte, 1% para débil
+                int percentDamage = Math.Max(1, (int)(target.lifeMax * percentOfMaxLife)); // Mínimo 1 de daño porcentual
+
+                // --- 2. Añadir el Daño Porcentual al Daño Base usando Flat ---
+                modifiers.SourceDamage.Flat += percentDamage;
+            }
 
             // --- Opcional: Ignorar Defensa ---
             // Descomenta si quieres que TODO el daño ignore defensa
