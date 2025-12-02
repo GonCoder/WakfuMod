@@ -142,6 +142,11 @@ Items: {
 		DisplayName: Toross Spawner
 		Tooltip: ""
 	}
+
+	TorossSwordItem: {
+		Tooltip: ""
+		DisplayName: Toross Sword Item
+	}
 }
 
 Buffs: {
@@ -205,4 +210,5 @@ NPCs: {
 	}
 
 	Toross.DisplayName: Toross
+	TorossSword.DisplayName: Toross Sword
 }

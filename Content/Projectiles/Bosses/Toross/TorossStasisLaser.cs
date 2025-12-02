@@ -32,6 +32,22 @@ namespace WakfuMod.Content.Projectiles.Bosses.Toross
 
         public override void AI()
         {
+            // --- FRIENDLY / PLAYER VERSION ---
+            if (Projectile.friendly)
+            {
+                // Simple straight flight
+                Projectile.rotation = Projectile.velocity.ToRotation();
+                
+                // Trail dust
+                if (Main.rand.NextBool(2))
+                {
+                    Dust d = Dust.NewDustPerfect(Projectile.Center, DustID.PinkTorch, Vector2.Zero);
+                    d.noGravity = true;
+                    d.velocity = Vector2.Zero;
+                }
+                return;
+            }
+
             // ai[0] = Boss whoAmI
             // ai[1] = Target whoAmI
             // ai[2] = Offset Index (0-3)

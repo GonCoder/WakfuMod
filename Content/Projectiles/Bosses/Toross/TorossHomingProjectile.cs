@@ -32,6 +32,51 @@ namespace WakfuMod.Content.Projectiles.Bosses.Toross
 
         public override void AI()
         {
+            // --- FRIENDLY / PLAYER VERSION ---
+            if (Projectile.friendly)
+            {
+                // Initialize
+                if (Projectile.localAI[0] == 0)
+                {
+                    Projectile.alpha = 0;
+                    Projectile.timeLeft = 300; // 5 seconds
+                }
+
+                // Find nearest NPC
+                NPC target = null;
+                float maxDist = 1000f;
+                
+                foreach (NPC npc in Main.npc)
+                {
+                    if (npc.CanBeChasedBy(Projectile) && Vector2.Distance(Projectile.Center, npc.Center) < maxDist)
+                    {
+                        target = npc;
+                        maxDist = Vector2.Distance(Projectile.Center, npc.Center);
+                    }
+                }
+
+                if (target != null)
+                {
+                    float speed = 15f;
+                    float inertia = 10f;
+                    Vector2 direction = (target.Center - Projectile.Center).SafeNormalize(Vector2.Zero);
+                    Projectile.velocity = (Projectile.velocity * (inertia - 1) + direction * speed) / inertia;
+                }
+
+                Projectile.rotation += 0.2f;
+                
+                // Trail dust
+                if (Main.rand.NextBool(3))
+                {
+                    Dust d = Dust.NewDustPerfect(Projectile.Center, DustID.PinkTorch, Vector2.Zero);
+                    d.noGravity = true;
+                }
+                
+                Projectile.localAI[0]++;
+                return;
+            }
+
+            // --- HOSTILE / BOSS VERSION ---
             // ai[0] = Boss whoAmI
             // ai[1] = Target whoAmI
             // ai[2] = Offset Index (0-1)

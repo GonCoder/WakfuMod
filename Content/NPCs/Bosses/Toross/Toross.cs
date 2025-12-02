@@ -41,7 +41,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Toross
             NPC.height = 240; // Increased from 200
             NPC.damage = 60;
             NPC.defense = 25;
-            NPC.lifeMax = 15000;
+            NPC.lifeMax = 200000; // Increased to be > Moon Lord (145k) + 30%
             NPC.HitSound = SoundID.NPCHit1;
             NPC.DeathSound = SoundID.NPCDeath1;
             NPC.knockBackResist = 0f;
@@ -109,6 +109,38 @@ namespace WakfuMod.Content.NPCs.Bosses.Toross
             float speed = NPC.ai[2];
             // Enrage/Speed up as health drops
             float healthRatio = (float)NPC.life / NPC.lifeMax;
+
+            // Phase 2 Trigger (50% HP) - Spawn Sword
+            if (healthRatio <= 0.5f && NPC.localAI[1] == 0)
+            {
+                NPC.localAI[1] = 1; // Mark as spawned
+                
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    // Spawn the sword at the boss's center
+                    NPC.NewNPC(NPC.GetSource_FromAI(), (int)NPC.Center.X, (int)NPC.Center.Y, ModContent.NPCType<TorossSword>());
+                }
+
+                // Epic Fluorescent Pink Stasis Explosion
+                SoundEngine.PlaySound(SoundID.Item14, NPC.Center); // Explosion sound
+                if (Main.netMode != NetmodeID.Server)
+                {
+                    for (int i = 0; i < 150; i++)
+                    {
+                        Vector2 dustSpeed = Main.rand.NextVector2Circular(15f, 15f);
+                        Dust d = Dust.NewDustPerfect(NPC.Center, DustID.PinkTorch, dustSpeed, 0, default, 3.5f);
+                        d.noGravity = true;
+                        d.fadeIn = 1.5f;
+                    }
+                    for (int i = 0; i < 50; i++)
+                    {
+                        Vector2 dustSpeed = Main.rand.NextVector2Circular(25f, 25f);
+                        Dust d = Dust.NewDustPerfect(NPC.Center, DustID.PinkFairy, dustSpeed, 0, default, 2.5f);
+                        d.noGravity = true;
+                    }
+                }
+            }
+
             float currentSpeed = speed + (1f - healthRatio) * 4f; 
             
             NPC.velocity.X = NPC.ai[1] * currentSpeed;
@@ -418,8 +450,8 @@ namespace WakfuMod.Content.NPCs.Bosses.Toross
         {
             // Drop de 5 Kamas (100% de probabilidad)
             npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Kama>(), 1, 5, 5));
-            // Drop de la Meowmere (Espada rosa)
-            npcLoot.Add(ItemDropRule.Common(ItemID.Meowmere));
+            // Drop de la Espada de Toross
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Content.Items.Weapons.TorossSwordItem>()));
         }
 
         public override void FindFrame(int frameHeight)
