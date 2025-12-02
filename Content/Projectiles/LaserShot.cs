@@ -126,8 +126,19 @@ namespace WakfuMod.Content.Projectiles
 
        // --- OnHitNPC (Sin cambios respecto a tu versión anterior) ---
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone) {
-            int extraDamage = (int)(target.lifeMax * 0.01f); // Ajusta el porcentaje si lo cambiaste
             Player owner = Main.player[Projectile.owner];
+            var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+            int extraDamage = 0;
+            
+            if (wakfuPlayer.BalanceMode)
+            {
+                extraDamage = (int)(10f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
+            }
+            else
+            {
+                extraDamage = (int)(target.lifeMax * 0.01f); // Ajusta el porcentaje si lo cambiaste
+            }
+
             owner.ApplyDamageToNPC(target, extraDamage, 0f, hit.HitDirection, false, Projectile.DamageType);
 
             for (int i = 0; i < Main.maxProjectiles; i++) {
@@ -174,10 +185,19 @@ namespace WakfuMod.Content.Projectiles
                     // Comprobar si el NPC es válido, hostil y está dentro del radio
                     if (npc.active && !npc.friendly && npc.CanBeChasedBy(Projectile, false) && Projectile.DistanceSQ(npc.Center) < radiusSq)
                     {
-                        // Calcula el 1% de la vida máxima
-                        int percentDamage = (int)(npc.lifeMax * 0.01f);
-                        // Asegurarse de que haga al menos 1 de daño
-                        if (percentDamage < 1) percentDamage = 1;
+                        var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+                        int percentDamage = 0;
+                        if (wakfuPlayer.BalanceMode)
+                        {
+                             percentDamage = (int)(10f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
+                        }
+                        else
+                        {
+                            // Calcula el 1% de la vida máxima
+                            percentDamage = (int)(npc.lifeMax * 0.01f);
+                            // Asegurarse de que haga al menos 1 de daño
+                            if (percentDamage < 1) percentDamage = 1;
+                        }
 
                         // Dirección del knockback (desde el centro de la explosión)
                         int hitDirection = Math.Sign(npc.Center.X - Projectile.Center.X);

@@ -4,6 +4,7 @@ using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Linq;
+using WakfuMod.jugador; // Para acceder a WakfuPlayer
 
 namespace WakfuMod.Content.Projectiles
 {
@@ -35,6 +36,23 @@ namespace WakfuMod.Content.Projectiles
             }
             // Gira lentamente el portal
             // Projectile.rotation += 0.1f;
+
+            // --- Lógica de Teletransporte de JUGADORES (Local) ---
+            // Cada cliente comprueba si SU jugador local está tocando este portal
+            Player localPlayer = Main.LocalPlayer;
+            if (localPlayer.active && !localPlayer.dead)
+            {
+                // Comprobar distancia (radio de 45f similar a proyectiles)
+                if (Vector2.Distance(localPlayer.Center, Projectile.Center) < 45f)
+                {
+                    // Comprobar cooldown en el jugador
+                    var modPlayer = localPlayer.GetModPlayer<WakfuPlayer>();
+                    if (modPlayer.portalPhysicsCooldown <= 0)
+                    {
+                        TeleportPlayer(localPlayer, modPlayer);
+                    }
+                }
+            }
             
             foreach (Projectile proj in Main.projectile)
             {
@@ -46,6 +64,36 @@ namespace WakfuMod.Content.Projectiles
                     }
                 }
             }
+        }
+
+        private void TeleportPlayer(Player player, WakfuPlayer modPlayer)
+        {
+            // Buscar el OTRO portal del MISMO DUEÑO que este portal
+            Projectile otherPortal = null;
+            for (int i = 0; i < Main.maxProjectiles; i++)
+            {
+                Projectile p = Main.projectile[i];
+                // Debe ser activo, del mismo tipo, del mismo dueño, y NO ser este mismo portal
+                if (p.active && p.type == Projectile.type && p.owner == Projectile.owner && p.whoAmI != Projectile.whoAmI)
+                {
+                    otherPortal = p;
+                    break;
+                }
+            }
+
+            if (otherPortal == null) return; // No hay salida
+
+            // Teletransportar al jugador al centro del otro portal
+            Vector2 targetPos = otherPortal.Center;
+            
+            // Usar Player.Teleport para manejar correctamente la cámara y posición
+            player.Teleport(targetPos, 1); // Style 1 = sin efectos visuales extraños por defecto
+
+            // Aplicar cooldown para evitar bucle infinito inmediato
+            modPlayer.portalPhysicsCooldown = 90; // 1.5 segundos de cooldown
+
+            // Opcional: Sonido de teletransporte
+            Terraria.Audio.SoundEngine.PlaySound(new Terraria.Audio.SoundStyle("WakfuMod/audio/openPortal"), player.position);
         }
 
         private void TeleportProjectile(Projectile proj)

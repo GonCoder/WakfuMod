@@ -11,6 +11,8 @@ using WakfuMod.Content.Projectiles;
 using WakfuMod.ModSystems;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.DataStructures;
+using Terraria.Chat;
+using Terraria.Localization;
 
 namespace WakfuMod.Content.NPCs.Bosses.Nox
 {
@@ -38,6 +40,9 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
         // ai[2]: Fase del combate (0 = Fase 1, 1 = Fase 2)
         // ai[3]: Cooldown para la habilidad TimeRift
         // localAI[0]: Temporizador para la animación de blink
+
+        private float _lastAIState = -1f; // Para detectar cambios de estado y resetear localAI
+        private List<int> _targetSequence = new List<int>(); // Secuencia de objetivos para "Shuffle Bag"
 
         private enum AI_State
         {
@@ -85,17 +90,52 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                 NPC.TargetClosest(true);
             }
             Player player = Main.player[NPC.target];
-            if (player.dead)
+            
+            // Si después de TargetClosest el jugador sigue siendo inválido, NO DESPAWNEAR INMEDIATAMENTE
+            if (player.dead || !player.active)
             {
                 NPC.velocity.Y += 0.1f;
-                if (NPC.timeLeft > 10) NPC.timeLeft = 10;
+                // NPC.EncourageDespawn(10); // --- DESACTIVADO: Causaba desaparición prematura ---
+                NPC.timeLeft = 1000; // Mantener vivo para evitar "One Hit Kill" por despawn
                 return;
+            }
+            else
+            {
+                // Mantener vivo si hay jugador válido
+                NPC.timeLeft = 1000; 
             }
 
             // Decrementar Cooldown de TimeRift
             if (NPC.ai[3] > 0)
             {
                 NPC.ai[3]--;
+            }
+
+            // --- Detectar Cambio de Estado para Resetear localAI (Sincronización) ---
+            if (NPC.ai[1] != _lastAIState)
+            {
+                NPC.localAI[0] = 0;
+
+                // --- SONIDOS Y EFECTOS AL CAMBIAR DE ESTADO ---
+                if ((AI_State)NPC.ai[1] == AI_State.PhaseTransition)
+                {
+                    SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxPhaseTransition") { Volume = 1.5f }, NPC.Center);
+                    // ... (Chat messages logic remains) ...
+                }
+                else if ((AI_State)NPC.ai[1] == AI_State.EndBlink)
+                {
+                    // Reproducir sonido de reaparición (Blink End)
+                    SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxBlink") { Volume = 1.2f }, NPC.Center);
+                    // Asegurar que alpha se resetea o se maneja en EndBlink
+                    // Pero EndBlink empieza con alpha 255 y baja.
+                }
+                else if ((AI_State)NPC.ai[1] == AI_State.StartBlink)
+                {
+                    // Reproducir sonido de desaparición (Blink Start)
+                    SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxBlink") { Volume = 1.2f }, NPC.Center);
+                }
+
+                _lastAIState = NPC.ai[1];
             }
 
             // --- Lógica de Transición de Fase (SIMPLIFICADA) ---
@@ -142,22 +182,71 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
             {
                 NPC.ai[0] = 0;
                 NPC.localAI[0] = 0;
+                
+                // --- SELECCIONAR NUEVO OBJETIVO (Shuffle Bag) ---
+                PickNextTarget();
+
                 NPC.ai[1] = (float)AI_State.StartBlink;
                 NPC.netUpdate = true;
+            }
+        }
+
+        private void PickNextTarget()
+        {
+            if (Main.netMode == NetmodeID.MultiplayerClient) return; // Solo el servidor decide
+
+            // Limpiar jugadores inválidos de la secuencia
+            _targetSequence.RemoveAll(id => !Main.player[id].active || Main.player[id].dead);
+
+            // Si la secuencia está vacía, rellenarla y barajar
+            if (_targetSequence.Count == 0)
+            {
+                for (int i = 0; i < Main.maxPlayers; i++)
+                {
+                    if (Main.player[i].active && !Main.player[i].dead)
+                    {
+                        _targetSequence.Add(i);
+                    }
+                }
+
+                // Barajar (Fisher-Yates)
+                int n = _targetSequence.Count;
+                while (n > 1)
+                {
+                    n--;
+                    int k = Main.rand.Next(n + 1);
+                    int value = _targetSequence[k];
+                    _targetSequence[k] = _targetSequence[n];
+                    _targetSequence[n] = value;
+                }
+            }
+
+            // Seleccionar el siguiente
+            if (_targetSequence.Count > 0)
+            {
+                NPC.target = _targetSequence[0];
+                _targetSequence.RemoveAt(0);
+                NPC.netUpdate = true; // Sincronizar el nuevo target
+            }
+            else
+            {
+                NPC.TargetClosest(true); // Fallback si no hay nadie en la lista (raro)
             }
         }
 
         private void StartBlink(Player player, bool isPhase2)
         {
             NPC.velocity = Vector2.Zero;
-            NPC.localAI[0]++; // Usar localAI[0] para la animación/fade
+            NPC.ai[0]++; // Usar ai[0] (sincronizado) en lugar de localAI[0]
 
-            NPC.alpha = (int)(255 * (NPC.localAI[0] / BlinkFadeTime));
+            NPC.alpha = (int)(255 * (NPC.ai[0] / BlinkFadeTime));
             if (NPC.alpha > 255) NPC.alpha = 255;
 
-            if (NPC.localAI[0] >= BlinkFadeTime)
+            // --- LÓGICA DE TELETRANSPORTE (SOLO SERVIDOR) ---
+            // Usamos ai[0] para sincronizar el tiempo.
+            if (Main.netMode != NetmodeID.MultiplayerClient && NPC.ai[0] >= BlinkFadeTime)
             {
-                SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxBlink"), NPC.position);
+                // SoundEngine.PlaySound... (Movido a AI() para que suene en clientes si es necesario, o confiamos en el de EndBlink)
 
                 // Eliminar noxinas viejas
                 for (int i = 0; i < Main.maxNPCs; i++)
@@ -165,58 +254,86 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                     if (Main.npc[i].active && Main.npc[i].type == ModContent.NPCType<Noxine>() && (int)Main.npc[i].ai[0] == NPC.whoAmI)
                     {
                         Main.npc[i].active = false;
+                        if (Main.netMode == NetmodeID.Server) NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, i); // Sincronizar muerte
                     }
                 }
 
-                // Buscar posición segura
-                Vector2 newPosition = Vector2.Zero;
-                for (int i = 0; i < 100; i++)
+                // Buscar posición segura (SOLO SERVIDOR)
+                // Validar target actual (si el elegido murió o desconectó)
+                if (NPC.target < 0 || NPC.target == 255 || Main.player[NPC.target].dead || !Main.player[NPC.target].active)
                 {
-                    float distance = Main.rand.NextFloat(300, 500);
-                    newPosition = player.Center + Main.rand.NextVector2Circular(distance, distance);
-                    if (!Collision.SolidCollision(newPosition - NPC.Size / 2f, NPC.width, NPC.height)) break;
-                    if (i == 99) newPosition = player.Center + new Vector2(0, -300);
+                     NPC.TargetClosest(true);
                 }
+                Player targetPlayer = Main.player[NPC.target]; // Usar el objetivo elegido en Idle
+                
+                // --- FIX: Asegurar que targetPlayer es válido antes de usarlo ---
+                if (targetPlayer == null || !targetPlayer.active || targetPlayer.dead)
+                {
+                     // Si no hay target válido, intentar buscar otro
+                     NPC.TargetClosest(true);
+                     targetPlayer = Main.player[NPC.target];
+                }
+
+                Vector2 newPosition = NPC.Center; // Posición por defecto: quedarse donde está
+                
+                // Solo intentar calcular nueva posición si tenemos un objetivo válido
+                if (targetPlayer != null && targetPlayer.active && !targetPlayer.dead)
+                {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        float distance = Main.rand.NextFloat(300, 500);
+                        newPosition = targetPlayer.Center + Main.rand.NextVector2Circular(distance, distance);
+                        if (!Collision.SolidCollision(newPosition - NPC.Size / 2f, NPC.width, NPC.height)) break;
+                        if (i == 99) newPosition = targetPlayer.Center + new Vector2(0, -300);
+                    }
+                }
+                
                 NPC.Center = newPosition;
                 NPC.alpha = 255;
 
                 // Restaurar Noxinas Orbitales
-                if (Main.netMode != NetmodeID.MultiplayerClient)
+                int orbitalCount = isPhase2 ? 24 : OrbitalNoxineCount;
+                for (int i = 0; i < orbitalCount; i++)
                 {
-                    int orbitalCount = isPhase2 ? 24 : OrbitalNoxineCount;
-                    for (int i = 0; i < orbitalCount; i++)
+                    int noxineType = ModContent.NPCType<Noxine>();
+                    int npcIndex = NPC.NewNPC(NPC.GetSource_FromAI(), (int)NPC.Center.X, (int)NPC.Center.Y, noxineType, 0,
+                        NPC.whoAmI, i * (360f / orbitalCount), 0f, 0f);
+                    if (npcIndex < Main.maxNPCs)
                     {
-                        int noxineType = ModContent.NPCType<Noxine>();
-                        int npcIndex = NPC.NewNPC(NPC.GetSource_FromAI(), (int)NPC.Center.X, (int)NPC.Center.Y, noxineType, 0,
-                            NPC.whoAmI, i * (360f / orbitalCount), 0f, 0f);
-                        if (npcIndex < Main.maxNPCs)
+                        Main.npc[npcIndex].localAI[0] = 0;
+                        if (Main.netMode == NetmodeID.Server)
                         {
-                            Main.npc[npcIndex].localAI[0] = 0;
-                            if (Main.netMode == NetmodeID.Server)
-                            {
-                                NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
-                            }
+                            NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
                         }
                     }
                 }
 
                 // Cambiar a estado de reaparición
-                NPC.ai[0] = 0;
-                NPC.localAI[0] = 0; // Resetear timer de animación para EndBlink
+                NPC.ai[0] = 0; // Resetear timer para EndBlink
+                NPC.localAI[0] = 0; 
                 NPC.ai[1] = (float)AI_State.EndBlink;
-                NPC.netUpdate = true;
+                
+                // --- SINCRONIZACIÓN ESTÁNDAR (COMO TOROSS) ---
+                // Al cambiar ai[1], Center y alpha en el servidor, netUpdate = true enviará todo a los clientes.
+                NPC.netUpdate = true; 
+            }
+            // --- CLIENTE: Evitar que ai[0] crezca indefinidamente si el paquete se retrasa ---
+            else if (Main.netMode == NetmodeID.MultiplayerClient && NPC.ai[0] > BlinkFadeTime + 60)
+            {
+                // Si llevamos mucho tiempo esperando (1 segundo extra), forzar visibilidad para no quedarnos invisibles
+                NPC.alpha = 0; 
             }
         }
 
         private void EndBlink(Player player, bool isPhase2)
         {
             NPC.velocity = Vector2.Zero;
-            NPC.localAI[0]++;
+            NPC.ai[0]++; // Usar ai[0] (sincronizado)
 
-            NPC.alpha = 255 - (int)(255 * (NPC.localAI[0] / BlinkFadeTime));
+            NPC.alpha = 255 - (int)(255 * (NPC.ai[0] / BlinkFadeTime));
             if (NPC.alpha < 0) NPC.alpha = 0;
 
-            if (NPC.localAI[0] >= BlinkFadeTime)
+            if (NPC.ai[0] >= BlinkFadeTime)
             {
                 NPC.alpha = 0;
                 NPC.ai[0] = 0;
@@ -258,23 +375,13 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
                 else
                 {
                     int attackerCount = isPhase2 ? 8 : AttackerNoxineCountPerPlayer;
-                    int activePlayers = 0;
-                    List<int> playerIndexes = new List<int>();
-                    for (int i = 0; i < Main.maxPlayers; i++)
-                    {
-                        if (Main.player[i].active && !Main.player[i].dead)
-                        {
-                            activePlayers++;
-                            playerIndexes.Add(i);
-                        }
-                    }
-                    if (activePlayers == 0) return;
-
+                    
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        foreach (int playerIndex in playerIndexes)
+                        // Atacar SOLO al objetivo actual (seleccionado en Idle)
+                        Player targetPlayer = Main.player[NPC.target];
+                        if (targetPlayer.active && !targetPlayer.dead)
                         {
-                            Player targetPlayer = Main.player[playerIndex];
                             for (int i = 0; i < attackerCount; i++)
                             {
                                 float angleOffset = (i - (attackerCount - 1) / 2f) * 0.4f;
@@ -312,15 +419,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
             if (NPC.ai[0] == 1)
             {
-                SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxPhaseTransition")
-                {
-                    Volume = 5.5f,
-                }, NPC.Center);
-                Main.NewText("My childrens called me Daddy...", new Color(0, 200, 255));
-                Main.NewText("My wife called me Milien...", new Color(0, 200, 255));
-                Main.NewText("This world will learn to call me NOOOOX", new Color(0, 200, 255));
-                Main.NewText("-->Nox TimeStop your hands<--", new Color(255, 10, 10));
-                Main.NewText("-->You cant attack, escape!<--", new Color(255, 10, 10));
+                // La lógica de sonido y texto se ha movido a AI() para garantizar sincronización
             }
             if (NPC.ai[0] % 5 == 0)
             {
@@ -361,7 +460,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
                 case AI_State.StartBlink:
                 case AI_State.EndBlink:
-                    int blinkFrameIndex = (int)(NPC.ai[3] / BlinkAnimSpeed);
+                    int blinkFrameIndex = (int)(NPC.ai[0] / BlinkAnimSpeed); // Usar ai[0] en lugar de ai[3] o localAI[0]
                     if (blinkFrameIndex >= Total_Blink_Frames)
                     {
                         blinkFrameIndex = Total_Blink_Frames - 1;

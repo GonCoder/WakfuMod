@@ -3,6 +3,8 @@ using Terraria;
 using Terraria.Audio;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.Chat;
+using Terraria.Localization;
 using WakfuMod.Content.NPCs.Bosses.Nox; // Para el NPC Nox
 
 namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
@@ -56,37 +58,50 @@ namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
 
         // Método helper para no repetir código
         public static void SpawnNox(Player player)
-{
-    // Asegurarse de que el jefe no esté ya activo
-    if (NPC.AnyNPCs(ModContent.NPCType<Nox>()))
-    {
-        return;
-    }
+        {
+            // Asegurarse de que el jefe no esté ya activo
+            if (NPC.AnyNPCs(ModContent.NPCType<Nox>()))
+            {
+                return;
+            }
 
-    // --- Tus mensajes y sonidos se mantienen intactos ---
-    SoundEngine.PlaySound(SoundID.Roar, player.position);
-    Main.NewText("I'll fix my life's clock!", new Color(0, 200, 255));
-    Main.NewText("It's time to go home HAHAHA!", new Color(0, 200, 255));
-    Vector2 spawnPos = player.Center + new Vector2(0, -300f);
+            // --- Tus mensajes y sonidos se mantienen intactos ---
+            SoundEngine.PlaySound(SoundID.Roar, player.position);
+            
+            if (Main.netMode == NetmodeID.Server)
+            {
+                ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral("I'll fix my life's clock!"), new Color(0, 200, 255));
+                ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral("It's time to go home HAHAHA!"), new Color(0, 200, 255));
+            }
+            else
+            {
+                Main.NewText("I'll fix my life's clock!", new Color(0, 200, 255));
+                Main.NewText("It's time to go home HAHAHA!", new Color(0, 200, 255));
+            }
 
-    if (Main.netMode != NetmodeID.MultiplayerClient) // La condición es correcta (solo SP o Servidor/Host)
-    {
-    
-        // LÍNEA NUEVA (CORRECTA Y MÁS ROBUSTA):
-        // Esta única llamada invoca al NPC y maneja la sincronización de red por sí misma.
-        NPC.NewNPC(
-            player.GetSource_ItemUse(player.HeldItem), // La fuente del evento
-            (int)spawnPos.X,                           // Posición X
-            (int)spawnPos.Y,                           // Posición Y
-            ModContent.NPCType<Nox>(),                 // El tipo de NPC a invocar
-            0,                                         // Start (whoAmI, generalmente 0 para jefes)
-            0f, 0f, 0f, 0f,                            // Valores iniciales para ai[0] a ai[3]
-            player.whoAmI                              // El objetivo inicial del NPC
-        );
+            Vector2 spawnPos = player.Center + new Vector2(0, -300f);
 
-        // --- FIN DEL CAMBIO ---
-    }
-}
+            if (Main.netMode != NetmodeID.MultiplayerClient) // La condición es correcta (solo SP o Servidor/Host)
+            {
+                // LÍNEA NUEVA (CORRECTA Y MÁS ROBUSTA):
+                // Esta única llamada invoca al NPC y maneja la sincronización de red por sí misma.
+                int npcID = NPC.NewNPC(
+                    player.GetSource_ItemUse(player.HeldItem), // La fuente del evento
+                    (int)spawnPos.X,                           // Posición X
+                    (int)spawnPos.Y,                           // Posición Y
+                    ModContent.NPCType<Nox>(),                 // El tipo de NPC a invocar
+                    0,                                         // Start (whoAmI, generalmente 0 para jefes)
+                    0f, 0f, 0f, 0f,                            // Valores iniciales para ai[0] a ai[3]
+                    player.whoAmI                              // El objetivo inicial del NPC
+                );
+
+                if (Main.netMode == NetmodeID.Server && npcID < Main.maxNPCs)
+                {
+                    NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcID);
+                }
+                // --- FIN DEL CAMBIO ---
+            }
+        }
 
         // Opcional: Receta para crear el item
         public override void AddRecipes()

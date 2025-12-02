@@ -5,6 +5,7 @@ using System;
 using WakfuMod.Content.Projectiles;
 using Terraria.Audio;
 using Terraria.ID; // Needed for Dust and Sound IDs
+using WakfuMod.jugador;
 
 namespace WakfuMod
 {
@@ -96,18 +97,16 @@ namespace WakfuMod
                 packet.Send();
             }
 
-            bool portalClosed = false;
             // Iterate through all projectiles to find portals owned by the player
             for (int i = 0; i < Main.maxProjectiles; i++)
             {
                 Projectile p = Main.projectile[i];
                 if (p.active && p.type == ModContent.ProjectileType<PortalProjectile>() && p.owner == player.whoAmI)
+                if (p.active && p.type == ModContent.ProjectileType<PortalProjectile>() && p.owner == player.whoAmI)
                 {
                     DetonatePortal(p, player, StandardExplosionRadius, StandardExplosionDamage, StandardExplosionKnockback, StandardExplosionSound, StandardExplosionDustType1, StandardExplosionDustType2, StandardExplosionDustCount);
-                    portalClosed = true;
                 }
             }
-
             if (player.whoAmI == Main.myPlayer)
             {
                 portal1ID = -1;
@@ -163,36 +162,21 @@ namespace WakfuMod
             if (portal == null || !portal.active || portal.type != ModContent.ProjectileType<PortalProjectile>()) return;
 
             Vector2 explosionPosition = portal.Center;
+            bool isViolent = addLifePercentDamage; // Usamos esto como flag para saber si es violenta
 
             // --- Visual Effects (Client-Side) ---
             if (Main.netMode != NetmodeID.Server)
             {
-                // Play sound IF provided (avoid double sound in TriggerViolentPortalExplosion)
-                if (sound.HasValue)
-                {
-                    SoundEngine.PlaySound(sound.Value, explosionPosition);
-                }
-
-                 float maxDustSpeed = explosionRadius * DustVelocityScaleFactor; // Higher radius = faster dust
-
-                // Create dust particles
-                for (int i = 0; i < dustCount; i++)
-                {
-                    int dustType = (i % 2 == 0) ? dustType1 : dustType2;
-                     // Generate a random velocity with magnitude up to maxDustSpeed
-                    Vector2 dustVelocity = Main.rand.NextVector2Circular(maxDustSpeed, maxDustSpeed);
-                    Dust dust = Dust.NewDustPerfect(
-                        explosionPosition,    // Spawn at center
-                        dustType,             // Use the correct dust type
-                        dustVelocity,         // Apply the calculated velocity for spread control <--- THIS IS THE KEY CHANGE
-                        100,                  // Alpha (starting transparency)
-                        default,       // Color override (none)
-                        1.8f                  // Scale (adjust dust size if needed)
-                    );
-                    dust.noGravity = true;    // Make dust ignore gravity
-                    // Optional: Adjust fade time, etc.
-                    // dust.fadeIn = 0.5f;
-                }
+                SpawnExplosionFX(explosionPosition, isViolent);
+            }
+            else // Server Side
+            {
+                 // Enviar paquete de efectos a los clientes (EXCLUYENDO al dueño, que ya lo ejecutó localmente)
+                 ModPacket packet = ModContent.GetInstance<WakfuMod>().GetPacket();
+                 packet.Write((byte)WakfuMod.MessageType.PortalExplosionFX);
+                 packet.WriteVector2(explosionPosition);
+                 packet.Write(isViolent);
+                 packet.Send(-1, owner.whoAmI);
             }
 
             // --- Damage Logic (Server/Singleplayer authoritative) ---
@@ -206,13 +190,33 @@ namespace WakfuMod
                         if (Vector2.DistanceSquared(npc.Center, explosionPosition) <= radiusSq)
                         {
                             int finalDamage = baseDamage;
-                            // Apply owner's damage modifiers (Using Magic for portals, adjust if needed)
-                            finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
+                            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
 
-                            // Add % max life damage if flagged (for violent explosion)
-                            if (addLifePercentDamage)
+                            if (wakfuPlayer.BalanceMode)
                             {
-                                finalDamage += (int)(npc.lifeMax * 0.09f); // 10% max life bonus damage
+                                // --- MODO BALANCEADO (Verde) ---
+                                if (addLifePercentDamage) // Explosión Violenta (Arma)
+                                {
+                                    finalDamage = 50;
+                                }
+                                else // Explosión Estándar (Manual)
+                                {
+                                    finalDamage = 20;
+                                }
+                                // Escalar con daño a distancia
+                                finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
+                            }
+                            else
+                            {
+                                // --- MODO ORIGINAL (Rojo) ---
+                                // Apply owner's damage modifiers (Using Magic for portals, adjust if needed)
+                                finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
+
+                                // Add % max life damage if flagged (for violent explosion)
+                                if (addLifePercentDamage)
+                                {
+                                    finalDamage += (int)(npc.lifeMax * 0.09f); // 10% max life bonus damage
+                                }
                             }
 
                             int direction = Math.Sign(npc.Center.X - explosionPosition.X);
@@ -226,6 +230,37 @@ namespace WakfuMod
 
             // --- Kill the Portal Projectile ---
             portal.Kill();
+        }
+
+        public static void SpawnExplosionFX(Vector2 position, bool violent)
+        {
+            float radius = violent ? ViolentExplosionRadius : StandardExplosionRadius;
+            int dustType1 = violent ? ViolentExplosionDustType1 : StandardExplosionDustType1;
+            int dustType2 = violent ? ViolentExplosionDustType2 : StandardExplosionDustType2;
+            int dustCount = violent ? ViolentExplosionDustCount : StandardExplosionDustCount;
+
+            // Sonido (Solo para explosión estándar, la violenta se maneja externamente o ya sonó)
+            if (!violent)
+            {
+                SoundEngine.PlaySound(StandardExplosionSound, position);
+            }
+
+            float maxDustSpeed = radius * DustVelocityScaleFactor;
+
+            for (int i = 0; i < dustCount; i++)
+            {
+                int dustType = (i % 2 == 0) ? dustType1 : dustType2;
+                Vector2 dustVelocity = Main.rand.NextVector2Circular(maxDustSpeed, maxDustSpeed);
+                Dust dust = Dust.NewDustPerfect(
+                    position,
+                    dustType,
+                    dustVelocity,
+                    100,
+                    default,
+                    1.8f
+                );
+                dust.noGravity = true;
+            }
         }
 
 

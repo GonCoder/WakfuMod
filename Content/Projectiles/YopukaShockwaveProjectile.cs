@@ -155,21 +155,46 @@ namespace WakfuMod.Content.Projectiles
         // --- ModifyHitNPC para aplicar daño % (Como lo teníamos) ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            int rage = rageLevel; // Usar la rabia guardada
-            // Tu cálculo de daño extra original (1% o 2%)
-            float extraPercent = (rage >= 5) ? 0.02f : 0.01f;
-            int extraDamage = (int)(target.lifeMax * extraPercent);
+            Player player = Main.player[Projectile.owner];
+            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
 
-            // Añadir el daño porcentual y el daño base que tenías (1 + rageLevel)
-            modifiers.FlatBonusDamage += 5 + rageLevel + extraDamage;
+            if (wakfuPlayer.BalanceMode)
+            {
+                // --- MODO BALANCEADO (Verde) ---
+                // Base: 10 + (Rage * 5)
+                int baseDamage = 10 + (rageLevel * 5);
+                
+                // Aplicar escalado de Melee
+                float meleeDamage = player.GetTotalDamage(DamageClass.Melee).ApplyTo(baseDamage);
+                
+                // Aplicar multiplicador de Rabia (1 + Rage * 0.10)
+                float rageMultiplier = 1f + (rageLevel * 0.10f);
+                
+                // Daño final
+                int finalDamage = (int)(meleeDamage * rageMultiplier);
 
-            // Aplicar tu knockback original
-            modifiers.Knockback.Base = 1f * rageLevel; // Usar .Base para establecerlo directamente
-                                                       // 1. Calcula el 2% de la vida máxima del NPC objetivo
-            float percentDamage = target.lifeMax * 0.02f;
+                modifiers.SourceDamage.Base = finalDamage;
+                modifiers.SourceDamage.Flat = 0; // Limpiar flat bonus anteriores
+            }
+            else
+            {
+                // --- MODO ORIGINAL (Rojo) ---
+                int rage = rageLevel; // Usar la rabia guardada
+                // Tu cálculo de daño extra original (1% o 2%)
+                float extraPercent = (rage >= 5) ? 0.02f : 0.01f;
+                int extraDamage = (int)(target.lifeMax * extraPercent);
 
-            // 2. Añade este daño como un bonus plano
-            modifiers.FlatBonusDamage += percentDamage;
+                // Añadir el daño porcentual y el daño base que tenías (1 + rageLevel)
+                modifiers.FlatBonusDamage += 5 + rageLevel + extraDamage;
+
+                // Aplicar tu knockback original
+                modifiers.Knockback.Base = 1f * rageLevel; // Usar .Base para establecerlo directamente
+                                                           // 1. Calcula el 2% de la vida máxima del NPC objetivo
+                float percentDamage = target.lifeMax * 0.02f;
+
+                // 2. Añade este daño como un bonus plano
+                modifiers.FlatBonusDamage += percentDamage;
+            }
         }
 
         // --- OnHitNPC para efectos visuales/sonoros al golpear (Opcional) ---

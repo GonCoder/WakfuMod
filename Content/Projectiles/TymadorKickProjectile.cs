@@ -141,9 +141,14 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
             }
 
             // --- REINTRODUCIR: Comprobar y Empujar Bombas ---
-            CheckAndPushBombs();
-            CheckAndPushFriendlyProjectiles();
-            CheckAndReflectHostileProjectiles(); // Para proyectiles enemigos
+            // SOLO el dueño del proyectil (el que patea) debe comprobar colisiones
+            // Esto evita desincronización donde el dueño ve que golpea pero el otro cliente no (por lag de posición)
+            if (Projectile.owner == Main.myPlayer)
+            {
+                CheckAndPushBombs();
+                CheckAndPushFriendlyProjectiles();
+                CheckAndReflectHostileProjectiles(); // Para proyectiles enemigos
+            }
         }
 
         // --- MÉTODO REVISADO: CheckAndPushBombs ---
@@ -169,7 +174,8 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
 
             foreach (var bomb in TymadorBombManager.ActiveBombs)
             {
-                if (bomb != null && bomb.active && bomb.owner == owner.whoAmI && !_hitBombsThisKick.Contains(bomb.whoAmI))
+                // Modificado: Eliminado '&& bomb.owner == owner.whoAmI' para permitir patear bombas de otros jugadores
+                if (bomb != null && bomb.active && !_hitBombsThisKick.Contains(bomb.whoAmI))
                 {
                     if (kickHitbox.Intersects(bomb.Hitbox))
                     {
@@ -206,7 +212,21 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
                             // Aplica el bono, pero sin pasar del máximo
                             tymadorBombInstance.kickDamageBonusPercent = Math.Min(potentialNewBonus, maxBonus);
                         }
-                        bomb.netUpdate = true;
+                        
+                        // --- SINCRONIZACIÓN MULTIJUGADOR ---
+                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                        {
+                            // Enviar paquete al servidor para que actualice la velocidad y sincronice a todos
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.KickProjectile);
+                            packet.Write(bomb.whoAmI);
+                            packet.WriteVector2(appliedVelocity);
+                            packet.Send();
+                        }
+                        else
+                        {
+                            bomb.netUpdate = true;
+                        }
 
                         // --- Marcar como golpeada y efectos ---
                         _hitBombsThisKick.Add(bomb.whoAmI);
@@ -270,9 +290,24 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
                                 ballInstance.State = 1;
                                 ballInstance.Projectile.tileCollide = true;
                             }
-                            targetProj.netUpdate = true;
+                            // targetProj.netUpdate = true; // Se maneja abajo
                         }
                         // else if (targetProj.ModProjectile is TymadorBomb bombInstance) { ... } // Si también afecta bombas
+
+                        // --- SINCRONIZACIÓN MULTIJUGADOR ---
+                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                        {
+                            // Enviar paquete al servidor
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.KickProjectile);
+                            packet.Write(targetProj.whoAmI);
+                            packet.WriteVector2(appliedVelocity);
+                            packet.Send();
+                        }
+                        else
+                        {
+                            targetProj.netUpdate = true;
+                        }
 
                         // --- Marcar como golpeado y efectos ---
                         _hitProjectilesThisKick.Add(targetProj.whoAmI);
@@ -326,7 +361,25 @@ namespace WakfuMod.Content.Projectiles // Reemplaza WakfuMod si es necesario
                         hostileProj.timeLeft = Math.Min(50, 200); // Añade tiempo de vida, máximo 5 seg
 
                         // 5. Sincronizar Cambios
-                        hostileProj.netUpdate = true;
+                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                        {
+                            // Para proyectiles hostiles reflejados, es más complejo porque cambiamos owner y daño.
+                            // Pero al menos sincronicemos la velocidad con nuestro nuevo sistema.
+                            // Nota: Cambiar 'owner' en cliente puede ser tricky si el servidor no lo valida.
+                            // Por ahora, enviamos la velocidad.
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.KickProjectile);
+                            packet.Write(hostileProj.whoAmI);
+                            packet.WriteVector2(hostileProj.velocity); // La velocidad ya fue invertida arriba
+                            packet.Send();
+                            
+                            // También intentamos netUpdate local por si acaso
+                            hostileProj.netUpdate = true;
+                        }
+                        else
+                        {
+                            hostileProj.netUpdate = true;
+                        }
 
                         // 6. Efectos Visuales/Sonoros del Reflejo
                         SoundEngine.PlaySound(SoundID.Item109 with { Volume = 0.7f, Pitch = 0.1f }, hostileProj.position); // Sonido de "parry" o reflejo

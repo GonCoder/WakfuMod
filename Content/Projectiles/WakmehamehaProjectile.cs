@@ -177,9 +177,23 @@ namespace WakfuMod.Content.Projectiles
                         // Usamos la inmunidad estándar del jugador para rayos continuos
                         if (npc.immune[owner] <= 0)
                         {
-                            // --- Calcular Daño % Vida ---
-                            float percentOfMaxLife = 0.005f; // 0.5%
-                            int calculatedDamage = 5 + (int)(npc.lifeMax * percentOfMaxLife);
+                            int calculatedDamage = 0;
+                            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+
+                            if (wakfuPlayer.BalanceMode)
+                            {
+                                // --- MODO BALANCEADO (Verde) ---
+                                // Daño fijo de 10 por tick, escalado con daño a distancia
+                                int baseDamage = 10;
+                                calculatedDamage = (int)player.GetTotalDamage(DamageClass.Ranged).ApplyTo(baseDamage);
+                            }
+                            else
+                            {
+                                // --- MODO ORIGINAL (Rojo) ---
+                                // --- Calcular Daño % Vida ---
+                                float percentOfMaxLife = 0.005f; // 0.5%
+                                calculatedDamage = 5 + (int)(npc.lifeMax * percentOfMaxLife);
+                            }
 
                             // --- Aplicar Daño con SimpleStrikeNPC (Ignora Defensa) ---
                             int hitDirection = Math.Sign(Projectile.velocity.X);

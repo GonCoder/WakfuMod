@@ -3,11 +3,38 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using WakfuMod.Content.Items.Pets;   // Namespace de tu item de mascota
 using WakfuMod.Content.Items.Mounts; // Namespace de tu item de montura
+using Microsoft.Xna.Framework;
 
 namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
 {
     public class WakfuGlobalNPC : GlobalNPC
     {
+        public override bool InstancePerEntity => true;
+
+        // --- XELOR TIME SUSPENSION ---
+        public bool xelorSlowed = false;
+        public Vector2 xelorRewindPos = Vector2.Zero;
+        public Vector2 xelorOriginalVelocity = Vector2.Zero;
+
+        public override void ResetEffects(NPC npc)
+        {
+            // No reseteamos xelorSlowed aquí porque dura varios frames controlado por el jugador
+        }
+
+        public override void PostAI(NPC npc)
+        {
+            if (xelorSlowed)
+            {
+                npc.velocity *= 0.92f; // Ralentizar un 8% por frame
+                
+                // Efecto visual opcional
+                if (Main.rand.NextBool(5))
+                {
+                    Dust.NewDust(npc.position, npc.width, npc.height, DustID.Electric, 0, 0, 150, Color.Purple, 0.5f);
+                }
+            }
+        }
+
          // --- USA ESTE MÉTODO EN SU LUGAR ---
          public override void ModifyShop(NPCShop shop) // O podría ser ModifyTravelShop
         {

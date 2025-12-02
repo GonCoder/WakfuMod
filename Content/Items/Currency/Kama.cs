@@ -11,7 +11,7 @@ namespace WakfuMod.Content.Items.Currency
             Item.width = 20;
             Item.height = 20;
             Item.maxStack = 666;
-            Item.value = Item.buyPrice(gold: 1); // Valor para vender
+            Item.value = Item.buyPrice(gold: 50); // Valor para vender (50 oro)
             Item.rare = ItemRarityID.Yellow;
         }
 

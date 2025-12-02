@@ -90,10 +90,26 @@ namespace WakfuMod.Content.Items.Weapons
                 float knockback = Item.knockBack * 1.5f;
                 Vector2 direction = (Main.MouseWorld - player.Center).SafeNormalize(Vector2.UnitX); //Esto hace que apunte hacia el ratón
                 float speed = 0.2f;
-                Projectile.NewProjectile(
-                    player.GetSource_ItemUse(Item), player.Center, direction * speed,
-                    ModContent.ProjectileType<YopukaSlashProjectile>(),
-                    damage, knockback, player.whoAmI, ai0: modPlayer.GetRageTicks());
+
+                if (Main.netMode == NetmodeID.MultiplayerClient)
+                {
+                    // --- SPAWN LOCAL (CLIENTE) ---
+                    // Spawneamos el proyectil localmente para respuesta instantánea.
+                    int p = Projectile.NewProjectile(
+                        player.GetSource_ItemUse(Item), player.Center, direction * speed,
+                        ModContent.ProjectileType<YopukaSlashProjectile>(),
+                        damage, knockback, player.whoAmI, ai0: modPlayer.GetRageTicks());
+
+                    // Forzar actualización de red para asegurar que ai[0] (Rage) llegue a otros clientes
+                    Main.projectile[p].netUpdate = true;
+                }
+                else
+                {
+                    Projectile.NewProjectile(
+                        player.GetSource_ItemUse(Item), player.Center, direction * speed,
+                        ModContent.ProjectileType<YopukaSlashProjectile>(),
+                        damage, knockback, player.whoAmI, ai0: modPlayer.GetRageTicks());
+                }
 
                 // 4. Sonido
                 SoundEngine.PlaySound(SoundID.Item71, player.position);
@@ -134,22 +150,53 @@ namespace WakfuMod.Content.Items.Weapons
         // --- AÑADIR O MODIFICAR ESTE MÉTODO: ModifyHitNPC ---
         public override void ModifyHitNPC(Player player, NPC target, ref NPC.HitModifiers modifiers)
         {
-            // Este hook modifica el DAÑO *antes* de que se aplique.
-            // SOLO queremos aplicar el % vida al clic izquierdo (swing normal).
-            // El clic derecho usa el ModifyHitNPC de YopukaSlashProjectile.
-            if (player.altFunctionUse != 2) // Asegurarse de que es el Clic Izquierdo
+            var modPlayer = player.GetModPlayer<WakfuPlayer>();
+            
+            if (modPlayer.BalanceMode)
             {
-                // 1. Calcula el 2% de la vida máxima del NPC objetivo
-                float percentDamage = target.lifeMax * 0.03f;
+                // --- MODO BALANCEADO (Verde) ---
+                // Clic Izquierdo (Swing): 20 daño base
+                // Clic Derecho (Slash): 30 daño base (aunque esto lo maneja el proyectil YopukaSlashProjectile, 
+                // pero si el item golpea directamente con clic derecho, aplicamos lógica similar o lo anulamos)
+                
+                if (player.altFunctionUse != 2) // Clic Izquierdo
+                {
+                    int baseDamage = 20;
+                    // Aplicar escalado de Melee (ya lo hace el juego base con Item.damage, pero aquí forzamos el valor base)
+                    // modifiers.SourceDamage.Base = baseDamage; // Esto reemplazaría el daño del item
+                    
+                    // Mejor enfoque: Calcular el daño final deseado y ajustarlo
+                    // Base: 20
+                    // Rage Multiplier: (1 + Rage * 0.10)
+                    
+                    float rageMultiplier = 1f + (modPlayer.GetRageTicks() * 0.10f);
+                    
+                    // Establecemos el daño base en 20 para que los modificadores de melee se apliquen sobre 20
+                    modifiers.SourceDamage.Base = 20; 
+                    
+                    // Aplicamos el multiplicador de rabia al daño final
+                    modifiers.FinalDamage *= rageMultiplier;
+                }
+            }
+            else
+            {
+                // --- MODO ORIGINAL (Rojo) ---
+                // Este hook modifica el DAÑO *antes* de que se aplique.
+                // SOLO queremos aplicar el % vida al clic izquierdo (swing normal).
+                // El clic derecho usa el ModifyHitNPC de YopukaSlashProjectile.
+                if (player.altFunctionUse != 2) // Asegurarse de que es el Clic Izquierdo
+                {
+                    // 1. Calcula el 2% de la vida máxima del NPC objetivo
+                    float percentDamage = target.lifeMax * 0.03f;
 
-                // 2. Añade este daño como un bonus plano al golpe del swing
-                modifiers.FlatBonusDamage += percentDamage;
-                modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+                    // 2. Añade este daño como un bonus plano al golpe del swing
+                    modifiers.FlatBonusDamage += percentDamage;
+                    modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
 
-                // 3. (Opcional) Puedes añadir otros modificadores aquí específicos del swing
-                // Ejemplo: Aumentar ligeramente el daño basado en la rabia para el swing también?
-                var modPlayer = player.GetModPlayer<WakfuPlayer>();
-                modifiers.FlatBonusDamage += modPlayer.GetRageTicks() * 0.5f; // Daño extra muy pequeño
+                    // 3. (Opcional) Puedes añadir otros modificadores aquí específicos del swing
+                    // Ejemplo: Aumentar ligeramente el daño basado en la rabia para el swing también?
+                    modifiers.FlatBonusDamage += modPlayer.GetRageTicks() * 0.5f; // Daño extra muy pequeño
+                }
             }
             // No hacemos nada si es altFunctionUse == 2, porque ese daño lo maneja el proyectil.
         }
@@ -157,7 +204,9 @@ namespace WakfuMod.Content.Items.Weapons
         // --- SpawnShockwaveFromPlayer (Modificado para UNA onda desde el JUGADOR) ---
         public static void SpawnShockwaveFromPlayer(Player player, int rage, int damage, float knockback)
         {
-            if (player.whoAmI != Main.myPlayer) return;
+            // Permitir si es el dueño O si es el servidor
+            if (player.whoAmI != Main.myPlayer && Main.netMode != NetmodeID.Server) return;
+            
             SoundEngine.PlaySound(SoundID.Item69, player.Center);
 
             int direction = player.direction; // Dirección del jugador
@@ -168,12 +217,28 @@ namespace WakfuMod.Content.Items.Weapons
 
             Vector2 velocity = new Vector2(direction * 6f, 0f); // Velocidad base shockwave
 
-            Projectile.NewProjectile(
-                player.GetSource_ItemUse(player.HeldItem), // Fuente
-                finalSpawnPos, velocity,
-                ModContent.ProjectileType<YopukaShockwaveProjectile>(),
-                damage, knockback, player.whoAmI,
-                ai0: rage, ai1: direction);
+            if (Main.netMode == NetmodeID.MultiplayerClient)
+            {
+                // --- SPAWN LOCAL (CLIENTE) ---
+                int p = Projectile.NewProjectile(
+                    player.GetSource_ItemUse(player.HeldItem), // Fuente
+                    finalSpawnPos, velocity,
+                    ModContent.ProjectileType<YopukaShockwaveProjectile>(),
+                    damage, knockback, player.whoAmI,
+                    ai0: rage, ai1: direction);
+
+                // Forzar actualización de red
+                Main.projectile[p].netUpdate = true;
+            }
+            else
+            {
+                Projectile.NewProjectile(
+                    player.GetSource_ItemUse(player.HeldItem), // Fuente
+                    finalSpawnPos, velocity,
+                    ModContent.ProjectileType<YopukaShockwaveProjectile>(),
+                    damage, knockback, player.whoAmI,
+                    ai0: rage, ai1: direction);
+            }
         }
 
         // --- Función Auxiliar para Encontrar Suelo (similar a la del proyectil) ---

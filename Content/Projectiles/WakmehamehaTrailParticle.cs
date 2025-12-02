@@ -53,21 +53,36 @@ namespace WakfuMod.Content.Projectiles
          // --- NUEVO: Hook para modificar el daño ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            // --- 1. Definir el porcentaje de daño ---
-            // Ajusta este valor (ej: 0.015f = 1.5% ahora hace 0.3%)
-            float percentOfMaxLife = 0.003f;
+            Player player = Main.player[Projectile.owner];
+            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
 
-            // --- 2. Calcular el daño ---
-            int calculatedDamage = 1 + (int)(target.lifeMax * percentOfMaxLife);
+            if (wakfuPlayer.BalanceMode)
+            {
+                // --- MODO BALANCEADO (Verde) ---
+                // Daño fijo de 5 por tick
+                modifiers.SourceDamage.Base = 5;
+                modifiers.DefenseEffectiveness *= 0f; // Ignorar defensa (opcional, pero consistente con "daño puro")
+                modifiers.Knockback.Base = 0f;
+            }
+            else
+            {
+                // --- MODO ORIGINAL (Rojo) ---
+                // --- 1. Definir el porcentaje de daño ---
+                // Ajusta este valor (ej: 0.015f = 1.5% ahora hace 0.3%)
+                float percentOfMaxLife = 0.003f;
 
-            // --- 3. Establecer el daño base ---
-            modifiers.SourceDamage.Base = calculatedDamage;
+                // --- 2. Calcular el daño ---
+                int calculatedDamage = 1 + (int)(target.lifeMax * percentOfMaxLife);
 
-            // --- 4. Ignorar defensa ---
-            modifiers.DefenseEffectiveness *= 0f;
+                // --- 3. Establecer el daño base ---
+                modifiers.SourceDamage.Base = calculatedDamage;
 
-            // --- 5. Anular knockback (ya debería ser 0, pero por si acaso) ---
-             modifiers.Knockback.Base = 0f;
+                // --- 4. Ignorar defensa ---
+                modifiers.DefenseEffectiveness *= 0f;
+
+                // --- 5. Anular knockback (ya debería ser 0, pero por si acaso) ---
+                modifiers.Knockback.Base = 0f;
+            }
 
             // --- Opcional: Deshabilitar críticos ---
             // modifiers.DisableCrit();

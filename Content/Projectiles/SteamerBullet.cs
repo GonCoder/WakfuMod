@@ -79,10 +79,21 @@ namespace WakfuMod.Content.Projectiles
          // --- ModifyHitNPC para Daño % Vida ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            float percentDamage = target.lifeMax * 0.02f;
-            
-            modifiers.FlatBonusDamage += percentDamage;
-            modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+            var wakfuPlayer = Main.player[Projectile.owner].GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+            if (wakfuPlayer.BalanceMode)
+            {
+                float baseDamage = 10f;
+                float damageMult = Main.player[Projectile.owner].GetDamage(DamageClass.Ranged).Multiplicative;
+                modifiers.FinalDamage *= 0;
+                modifiers.FlatBonusDamage += baseDamage * damageMult;
+            }
+            else
+            {
+                float percentDamage = target.lifeMax * 0.02f;
+                
+                modifiers.FlatBonusDamage += percentDamage;
+                modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+            }
         }
 
         // --- OnHitNPC para Aplicar Reducción de Defensa ---

@@ -8,6 +8,8 @@ using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.GameContent.ItemDropRules;
+using WakfuMod.Content.Items.Currency;
 using WakfuMod.Content.Projectiles.Bosses.Toross;
 
 namespace WakfuMod.Content.NPCs.Bosses.Toross
@@ -410,6 +412,14 @@ namespace WakfuMod.Content.NPCs.Bosses.Toross
             
             // Draw Boss Texture (Default behavior will draw it after this if we return true)
             return true;
+        }
+
+        public override void ModifyNPCLoot(NPCLoot npcLoot)
+        {
+            // Drop de 5 Kamas (100% de probabilidad)
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Kama>(), 1, 5, 5));
+            // Drop de la Meowmere (Espada rosa)
+            npcLoot.Add(ItemDropRule.Common(ItemID.Meowmere));
         }
 
         public override void FindFrame(int frameHeight)

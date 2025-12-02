@@ -43,23 +43,30 @@ namespace WakfuMod.Content.Projectiles
         // OnSpawn es fiable para inicializar valores, incluso en MP
         public override void OnSpawn(IEntitySource source)
         {
-            // Si la fuente es una entidad (como el jugador que usó la habilidad)
-            if (source is EntitySource_Parent parentSource && parentSource.Entity is Player player)
+            // Si ai[1] (Rage) ya viene establecido (por ejemplo, desde el paquete o NewProjectile con params), lo usamos.
+            // Si es 0, intentamos obtenerlo del jugador (caso local/singleplayer donde quizás no se pasó explícitamente, aunque WakfuPlayer sí lo pasa).
+            
+            if (Projectile.ai[1] == 0)
             {
-                // Calcula el daño base aquí, posiblemente usando la rabia del jugador en ESE momento
-                var modPlayer = player.GetModPlayer<jugador.WakfuPlayer>();
-                InitialRage = modPlayer.GetRageTicks(); // Obtener rabia actual
-                BaseDamage = 20; // O calcula un daño base más complejo aquí si es necesario
-                                 // Asignar ai[1] que sí se sincroniza
-                Projectile.ai[1] = InitialRage;
+                if (source is EntitySource_Parent parentSource && parentSource.Entity is Player player)
+                {
+                    var modPlayer = player.GetModPlayer<jugador.WakfuPlayer>();
+                    InitialRage = modPlayer.GetRageTicks();
+                    Projectile.ai[1] = InitialRage;
+                }
+                else
+                {
+                    InitialRage = 0;
+                    Projectile.ai[1] = 0;
+                }
             }
-            // Si no, poner valores por defecto (aunque no debería pasar si se llama bien)
             else
             {
-                InitialRage = 0;
-                BaseDamage = 20;
-                Projectile.ai[1] = 0;
+                // Si ya viene en ai[1], confiamos en ello (especialmente importante en Server donde modPlayer.rageTicks no está sincronizado)
+                InitialRage = (int)Projectile.ai[1];
             }
+
+            BaseDamage = 20; // Daño base fijo
             HasStruck = false; // Asegurarse que ai[0] empieza en 0
         }
 
@@ -126,16 +133,41 @@ namespace WakfuMod.Content.Projectiles
         // --- Modificar el golpe ANTES de que se aplique ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers) // Firma correcta
         {
-            // Aplicar daño % vida máxima aquí usando los modificadores
+            Player player = Main.player[Projectile.owner];
+            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
             int rage = (int)Projectile.ai[1]; // Obtener rabia guardada
-            float extraPercent = rage >= 5 ? 0.10f : 0.05f;
-            int extraDamage = (int)(target.lifeMax * extraPercent);
 
-            // Añadir el daño extra. Usamos FlatBonusDamage para añadir un valor fijo.
-            modifiers.FlatBonusDamage += extraDamage;
-            modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
-            // Modificar el knockback multiplicándolo
-            modifiers.Knockback *= 1f + 0.5f * rage; // Ejemplo: Aumenta 50% por cada punto de rabia
+            if (wakfuPlayer.BalanceMode)
+            {
+                // --- MODO BALANCEADO (Verde) ---
+                // Base: 20 + (Rage * 5)
+                int baseDamage = 20 + (rage * 5);
+
+                // Aplicar escalado de Melee
+                float meleeDamage = player.GetTotalDamage(DamageClass.Melee).ApplyTo(baseDamage);
+
+                // Aplicar multiplicador de Rabia (1 + Rage * 0.10)
+                float rageMultiplier = 1f + (rage * 0.10f);
+
+                // Daño final
+                int finalDamage = (int)(meleeDamage * rageMultiplier);
+
+                modifiers.SourceDamage.Base = finalDamage;
+                modifiers.SourceDamage.Flat = 0;
+            }
+            else
+            {
+                // --- MODO ORIGINAL (Rojo) ---
+                // Aplicar daño % vida máxima aquí usando los modificadores
+                float extraPercent = rage >= 5 ? 0.10f : 0.05f;
+                int extraDamage = (int)(target.lifeMax * extraPercent);
+
+                // Añadir el daño extra. Usamos FlatBonusDamage para añadir un valor fijo.
+                modifiers.FlatBonusDamage += extraDamage;
+                modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+                // Modificar el knockback multiplicándolo
+                modifiers.Knockback *= 1f + 0.5f * rage; // Ejemplo: Aumenta 50% por cada punto de rabia
+            }
         }
 
 

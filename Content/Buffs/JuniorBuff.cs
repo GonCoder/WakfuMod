@@ -40,6 +40,9 @@ namespace WakfuMod.Content.Buffs // Ajusta el namespace
             if (!petProjectileNotSpawned) // Si el proyectil SÍ existe
             {
                 player.buffTime[buffIndex] = 18000;
+                
+                // --- EFECTO SPELUNKER (Ver Minerales) ---
+                player.findTreasure = true;
             }
             // Si el proyectil muere, la lógica en su AI (comprobando HasBuff) lo matará,
             // y al usar el item de nuevo, si el buff se quitó, se volverá a añadir.

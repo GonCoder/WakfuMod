@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics; // Necesario
 using Terraria.Audio;
 using WakfuMod.Content.NPCs;
 using System;
+using System.IO;
 using ReLogic.Content; // Para Math.Sign
 
 namespace WakfuMod.Content.Projectiles
@@ -32,9 +33,23 @@ namespace WakfuMod.Content.Projectiles
 
 
         private const int ExplodeTime = 5 * 60;
-        private bool stuckToEnemy = false;
-        private NPC stuckTarget;
+        // private bool stuckToEnemy = false; // Reemplazado por Projectile.ai[1]
+        // private NPC stuckTarget; // Reemplazado por Projectile.ai[1]
         private Vector2 offsetFromTarget;
+
+        // --- Propiedades para Sincronización ---
+        private bool IsStuck => Projectile.ai[1] > 0;
+        private int TargetWhoAmI => (int)Projectile.ai[1] - 1;
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.WriteVector2(offsetFromTarget);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            offsetFromTarget = reader.ReadVector2();
+        }
 
         // --- Registrar Frames ---
         public override void SetStaticDefaults()
@@ -75,17 +90,19 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.frame = (Projectile.frame + 1) % FrameCount; // Ciclar frames 0, 1, 2, 0, 1, ...
             }
             // --- Lógica de Adhesión ---
-            if (stuckToEnemy)
+            if (IsStuck)
             {
-                if (stuckTarget != null && stuckTarget.active && !stuckTarget.dontTakeDamage) // Asegurarse que el target sigue vivo y puede ser dañado
+                NPC target = Main.npc[TargetWhoAmI];
+                if (target.active && !target.dontTakeDamage) // Asegurarse que el target sigue vivo y puede ser dañado
                 {
-                    Projectile.Center = stuckTarget.Center + offsetFromTarget;
-                   
+                    Projectile.Center = target.Center + offsetFromTarget;
+                    Projectile.gfxOffY = 0; // Evitar jitter visual
                 }
                 else
                 {
                     // Si el target muere o se vuelve inválido, la granada cae y explota antes
-                    stuckToEnemy = false;
+                    Projectile.ai[1] = 0; // Despegar (stuckToEnemy = false)
+                    Projectile.netUpdate = true;
                     Projectile.tileCollide = true;
                     Projectile.timeLeft = Math.Min(Projectile.timeLeft, 15); // Explota rápido
                 }
@@ -99,20 +116,6 @@ namespace WakfuMod.Content.Projectiles
 
                 // Aplicar rotación basada en velocidad horizontal
                 Projectile.rotation += Projectile.velocity.X * 0.2f;
-
-                // Comprobar colisión manual con enemigos para intentar pegarse
-                // (OnHitNPC a veces no es suficiente si penetrate es -1)
-                // Esta parte es opcional si OnHitNPC funciona bien con penetrate = 1
-                /*
-                Rectangle hitbox = Projectile.Hitbox;
-                for(int i = 0; i < Main.maxNPCs; i++) {
-                    NPC npc = Main.npc[i];
-                    if(npc.active && !npc.friendly && !npc.dontTakeDamage && npc.Hitbox.Intersects(hitbox)) {
-                        StickToNPC(npc);
-                        break; // Pegarse solo al primero que toca
-                    }
-                }
-                */
             }
 
             // Polvo (como antes)
@@ -135,7 +138,7 @@ namespace WakfuMod.Content.Projectiles
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
         {
             // Solo pegarse si no está ya pegado
-            if (!stuckToEnemy)
+            if (!IsStuck)
             {
                 StickToNPC(target);
             }
@@ -147,22 +150,22 @@ namespace WakfuMod.Content.Projectiles
         // --- MÉTODO PARA COMPROBAR SI ESTÁ PEGADA A UN NPC ESPECÍFICO ---
         public bool IsStuckTo(NPC npc)
         {
-            // Devuelve true si está pegada (stuckToEnemy es true) Y
-            // si el NPC al que está pegada (stuckTarget) es el mismo que el npc que se pasa como parámetro.
-            return stuckToEnemy && stuckTarget == npc;
+            // Devuelve true si está pegada (IsStuck es true) Y
+            // si el NPC al que está pegada (TargetWhoAmI) es el mismo que el npc que se pasa como parámetro.
+            return IsStuck && TargetWhoAmI == npc.whoAmI;
         }
 
 
         // --- Función para Pegarse ---
         public void StickToNPC(NPC target)
         {
-            stuckToEnemy = true;
-            stuckTarget = target;
+            Projectile.ai[1] = target.whoAmI + 1; // Guardar ID + 1
             offsetFromTarget = Projectile.Center - target.Center; // Guardar offset relativo
             Projectile.velocity = Vector2.Zero; // Detener movimiento
             Projectile.tileCollide = false; // Ya no choca con tiles
             Projectile.timeLeft = ExplodeTime; // Resetear tiempo de explosión
             Projectile.penetrate = -1; // Ya no necesita penetrar más
+            Projectile.netUpdate = true; // Sincronizar cambios
 
             // Marcar al enemigo (tu lógica original)
             var globalNPC = target.GetGlobalNPC<SteamerGlobalNPC>();
@@ -183,7 +186,7 @@ namespace WakfuMod.Content.Projectiles
         {
             // No puede golpear si ya está pegado
             // Solo puede golpear al NPC al que NO está pegado, para el primer impacto
-            if (stuckToEnemy) return false;
+            if (IsStuck) return false;
             // Permitir el golpe inicial
             return base.CanHitNPC(target);
         }
@@ -261,16 +264,26 @@ namespace WakfuMod.Content.Projectiles
             // --- Lógica de Daño (Ajustada para usar explosionCenter y el radio correcto) ---
             if (Main.myPlayer == Projectile.owner)
             {
+                var wakfuPlayer = Main.player[Projectile.owner].GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
                 foreach (NPC npc in Main.npc)
                 {
                     // Usar el radio correcto (200f normal, 350f potenciada)
                     if (npc.active && !npc.friendly && npc.CanBeChasedBy(Projectile) && npc.DistanceSQ(explosionCenter) <= radius * radius)
                     {
-                        int totalDamage = baseDamage;
-                        if (potenciada)
+                        int totalDamage = 0;
+                        if (wakfuPlayer.BalanceMode)
                         {
-                            totalDamage += 20;
-                            totalDamage += (int)(npc.lifeMax * 0.1f); // Daño % vida max
+                            float baseDmg = potenciada ? 50f : 20f;
+                            totalDamage = (int)(baseDmg * Main.player[Projectile.owner].GetDamage(DamageClass.Ranged).Multiplicative);
+                        }
+                        else
+                        {
+                            totalDamage = baseDamage;
+                            if (potenciada)
+                            {
+                                totalDamage += 20;
+                                totalDamage += (int)(npc.lifeMax * 0.1f); // Daño % vida max
+                            }
                         }
                         // Aplicar daño
                         Main.player[Projectile.owner].ApplyDamageToNPC(npc, totalDamage, 2f, Math.Sign(npc.Center.X - explosionCenter.X), false, Projectile.DamageType); // Knockback bajo

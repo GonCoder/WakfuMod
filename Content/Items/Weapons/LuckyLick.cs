@@ -66,8 +66,12 @@ namespace WakfuMod.Content.Items.Weapons
         {
             if (player.altFunctionUse == 2) // Clic Derecho
             {
+                // Calcular la distancia al cursor para pasarla al proyectil
+                float distance = Vector2.Distance(player.Center, Main.MouseWorld);
+                
                 // Dispara un solo lengüetazo
-                Projectile.NewProjectile(source, player.Center, velocity, type, damage, knockback, player.whoAmI);
+                // Pasamos la distancia en ai[0]
+                Projectile.NewProjectile(source, player.Center, velocity, type, damage, knockback, player.whoAmI, distance);
             }
             else // Clic Izquierdo
             {

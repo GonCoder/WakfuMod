@@ -7,6 +7,8 @@ using System.IO;
 using Microsoft.Xna.Framework;
 using Terraria.DataStructures;
 using Terraria.ID;
+using Terraria.Localization;
+using Terraria.Chat;
 
 namespace WakfuMod.ModSystems
 {
@@ -43,14 +45,33 @@ namespace WakfuMod.ModSystems
                     if (Main.rand.NextFloat() < NoxSpawnChance)
                     {
                         // Invocar a Nox
-                        Player player = Main.LocalPlayer; // O elegir un jugador aleatorio en MP
-                        Vector2 spawnPos = player.Center + new Vector2(0, -500f);
-                        int npcIndex = NPC.NewNPC(new EntitySource_WorldEvent(), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
-                        Main.NewText("An echo resound in time... ¡Nox is back, again?!", new Color(0, 200, 255));
-                        
-                        if (Main.netMode == NetmodeID.Server)
+                        // En servidor, Main.LocalPlayer no es válido. Buscar un jugador activo.
+                        int playerIndex = -1;
+                        for (int i = 0; i < Main.maxPlayers; i++)
                         {
-                            NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
+                            if (Main.player[i].active && !Main.player[i].dead)
+                            {
+                                playerIndex = i;
+                                break;
+                            }
+                        }
+
+                        if (playerIndex != -1)
+                        {
+                            Player player = Main.player[playerIndex];
+                            Vector2 spawnPos = player.Center + new Vector2(0, -500f);
+                            int npcIndex = NPC.NewNPC(new EntitySource_WorldEvent(), (int)spawnPos.X, (int)spawnPos.Y, ModContent.NPCType<Nox>());
+                            // Mensaje para todos
+                            if (Main.netMode == NetmodeID.Server)
+                            {
+                                ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral("An echo resound in time... ¡Nox is back, again?!"), new Color(0, 200, 255));
+                                NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npcIndex);
+                            }
+                            
+                            else
+                            {
+                                Main.NewText("An echo resound in time... ¡Nox is back, again?!", new Color(0, 200, 255));
+                            }
                         }
                     }
                 }

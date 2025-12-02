@@ -121,14 +121,25 @@ namespace WakfuMod.Content.Projectiles
         // --- NUEVO O MODIFICADO: ModifyHitNPC ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            // 1. Calcula el 0.5% de la vida máxima del NPC objetivo
-            float percentDamage = target.lifeMax * 0.02f; // 0.005f es 0.5%
+            var wakfuPlayer = Main.player[Projectile.owner].GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+            if (wakfuPlayer.BalanceMode)
+            {
+                float baseDamage = 15f;
+                float damageMult = Main.player[Projectile.owner].GetDamage(DamageClass.Ranged).Multiplicative;
+                modifiers.FinalDamage *= 0;
+                modifiers.FlatBonusDamage += baseDamage * damageMult;
+            }
+            else
+            {
+                // 1. Calcula el 0.5% de la vida máxima del NPC objetivo
+                float percentDamage = target.lifeMax * 0.02f; // 0.005f es 0.5%
 
-            // 2. Asegura un mínimo de daño si el cálculo es muy bajo (opcional pero recomendado)
-            if (percentDamage < 1f) percentDamage = 1f;
+                // 2. Asegura un mínimo de daño si el cálculo es muy bajo (opcional pero recomendado)
+                if (percentDamage < 1f) percentDamage = 1f;
 
-            // 3. Añade este daño como un bonus plano
-            modifiers.FlatBonusDamage += percentDamage;
+                // 3. Añade este daño como un bonus plano
+                modifiers.FlatBonusDamage += percentDamage;
+            }
 
             // 4. (Opcional) Puedes añadir otros modificadores aquí
             // Ejemplo: Reducir ligeramente el knockback del láser especial

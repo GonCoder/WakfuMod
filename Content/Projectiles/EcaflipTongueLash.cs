@@ -28,14 +28,55 @@ namespace WakfuMod.Content.Projectiles
         {
             Player owner = Main.player[Projectile.owner];
 
-            // --- Lógica de Estiramiento y Rotación (SIN CAMBIOS) ---
-            Vector2 directionToCursor = (Main.MouseWorld - owner.Center).SafeNormalize(Vector2.UnitX);
-            float distanceToCursor = Vector2.Distance(owner.Center, Main.MouseWorld);
+            // --- Lógica de Estiramiento y Rotación (CORREGIDO PARA MULTIJUGADOR) ---
+            // Usamos Projectile.velocity para la dirección y Projectile.ai[0] para la distancia
+            Vector2 directionToCursor = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+            float distanceToCursor = Projectile.ai[0];
             float maxDistance = 600f;
             float actualLength = Math.Min(distanceToCursor, maxDistance);
 
             Projectile.Center = owner.Center + directionToCursor * (actualLength / 2f);
             Projectile.rotation = directionToCursor.ToRotation();
+
+            // --- DETECTAR JUGADORES (Manual Collision Check) ---
+            // Solo el dueño del proyectil realiza la detección para evitar duplicados
+            if (Projectile.owner == Main.myPlayer && Projectile.localAI[0] == 0) 
+            {
+                Vector2 start = owner.Center;
+                Vector2 end = start + directionToCursor * actualLength;
+                float _collisionPoint = 0f;
+
+                for (int i = 0; i < Main.maxPlayers; i++)
+                {
+                    Player target = Main.player[i];
+                    // Verificar: Activo, No muerto, No es el dueño, Mismo equipo
+                    if (target.active && !target.dead && target.whoAmI != owner.whoAmI && target.team == owner.team)
+                    {
+                        // Chequear colisión con la línea de la lengua
+                        if (Collision.CheckAABBvLineCollision(target.Hitbox.TopLeft(), target.Hitbox.Size(), start, end, Projectile.height, ref _collisionPoint))
+                        {
+                            // Calcular dirección de atracción
+                            Vector2 pullDirection = owner.Center - target.Center;
+                            if (pullDirection != Vector2.Zero) pullDirection.Normalize();
+                            Vector2 newVelocity = pullDirection * 16f;
+
+                            // Enviar paquete al servidor (o al objetivo si somos host)
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.PullPlayer);
+                            packet.Write((byte)target.whoAmI);
+                            packet.WriteVector2(newVelocity);
+                            packet.Send();
+
+                            // Marcar como usado para no spamear paquetes (un golpe por uso)
+                            Projectile.localAI[0] = 1; 
+                            
+                            // Efectos visuales locales
+                            SoundEngine.PlaySound(SoundID.Item4, target.Center);
+                            break; // Solo un jugador por frame/uso
+                        }
+                    }
+                }
+            }
 
             // --- EFECTO VISUAL DE LA LENGUA (POLVO ROSA) - CORREGIDO ---
             // Generar polvo a lo largo de toda la lengua
@@ -69,10 +110,13 @@ namespace WakfuMod.Content.Projectiles
         {
             Player owner = Main.player[Projectile.owner];
             Vector2 start = owner.Center;
-            Vector2 direction = (Main.MouseWorld - owner.Center).SafeNormalize(Vector2.UnitX);
+            
+            // Usar los mismos valores sincronizados que en AI
+            Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
             float maxDistance = 600f;
-            float distanceToCursor = Vector2.Distance(owner.Center, Main.MouseWorld);
+            float distanceToCursor = Projectile.ai[0];
             float actualLength = Math.Min(distanceToCursor, maxDistance);
+            
             Vector2 end = start + direction * actualLength;
 
             float _collisionPoint = 0f; // No necesitamos este valor
@@ -88,37 +132,12 @@ namespace WakfuMod.Content.Projectiles
             modifiers.Knockback.Base = 18f;
         }
 
-        public override void OnHitPlayer(Player target, Player.HurtInfo info)
-        {
-            Player owner = Main.player[Projectile.owner];
-            // Solo afectar a jugadores del mismo equipo que no sean el propio lanzador
-            if (target.team == owner.team && target.whoAmI != owner.whoAmI)
-            {
-                // Curar el 50% de la vida máxima del OBJETIVO
-                int healAmount = target.statLifeMax2 / 2;
-                target.Heal(healAmount);
-                CombatText.NewText(target.getRect(), Color.LawnGreen, $"+{healAmount}");
-                SoundEngine.PlaySound(SoundID.Item4, target.Center);
-
-                // Atraer al jugador hacia el lanzador
-                Vector2 pullDirection = owner.Center - target.Center;
-                pullDirection.Normalize();
-                target.velocity = pullDirection * 16f; // Velocidad de atracción
-
-                // TODO: Sincronizar el cambio de velocidad en multijugador si es necesario.
-            }
-        }
-
         public override bool? CanHitNPC(NPC target)
         {
             // Evitar golpear a los Town NPCs
             return !target.townNPC;
         }
 
-        public override bool CanHitPlayer(Player target)
-        {
-            // Permitir golpear a jugadores del mismo equipo (y que no seas tú mismo)
-            return target.team == Main.player[Projectile.owner].team && target.whoAmI != Projectile.owner;
-        }
+
     }
 }

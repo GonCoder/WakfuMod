@@ -171,8 +171,17 @@ namespace WakfuMod.Content.Projectiles
                      hitbox.Intersects(npc.Hitbox) && npc.immune[Projectile.owner] == 0) // <<<--- CORRECCIÓN AQUÍ
                 {
                     // Aplicar daño por contacto
-                    // Usamos GetDamage para escalar con bonos de invocación
-                    int finalDamage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(ContactDamage);
+                    int finalDamage = 0;
+                    var wakfuPlayer = owner.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
+                    if (wakfuPlayer.BalanceMode)
+                    {
+                        finalDamage = (int)(5f * owner.GetDamage(DamageClass.Ranged).Multiplicative);
+                    }
+                    else
+                    {
+                        // Usamos GetDamage para escalar con bonos de invocación
+                        finalDamage = (int)owner.GetDamage(DamageClass.Summon).ApplyTo(ContactDamage);
+                    }
                     // Usamos ApplyDamageToNPC que maneja mejor los modificadores
                     owner.ApplyDamageToNPC(npc, finalDamage, 20f /* knockback */, Math.Sign(npc.Center.X - Projectile.Center.X), false, Projectile.DamageType);
 

@@ -57,11 +57,12 @@ namespace WakfuMod.Content.Projectiles
             Projectile.ignoreWater = true;
             Projectile.usesLocalNPCImmunity = true;
             Projectile.localNPCHitCooldown = HitCooldown;
-            Projectile.ownerHitCheck = true; // Requiere estar cerca del jugador
+            // Projectile.ownerHitCheck = true; // REMOVIDO: Causaba que el proyectil muriera instantáneamente en MP
             Projectile.hide = false; // ¡IMPORTANTE! Queremos ver el sprite
             Projectile.scale = 1f; // Escala base
             Projectile.aiStyle = -1; // Sin AI por defecto
             Projectile.velocity = Vector2.Zero; // No se mueve por sí mismo
+            Projectile.netImportant = true; // --- AÑADIDO: Importante para sincronización en MP ---
              // --- Establecer Daño Base ---
             // Aunque el item pueda tener otro daño, aquí definimos el daño de ESTE proyectil
             Projectile.damage = BaseSlashDamage; // <<<--- DAÑO BASE DEL SLASH
@@ -72,6 +73,8 @@ namespace WakfuMod.Content.Projectiles
             Player owner = Main.player[Projectile.owner];
 
             // --- Shockwave ---
+           // REVERTIDO: Volvemos a spawnear en el cliente dueño.
+           // Al haber añadido 'netImportant = true' al proyectil de la Shockwave, ahora sí debería sincronizarse correctamente.
            if (owner.whoAmI == Main.myPlayer) {
                  // La Shockwave ahora también debería tener daño base 1 + % vida
                  float shockwaveBaseDamage = 1f; // <<<--- DAÑO BASE SHOCKWAVE
@@ -176,21 +179,43 @@ namespace WakfuMod.Content.Projectiles
          // --- ModifyHitNPC (Añadir daño % vida máxima) ---
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            // 1. Bonus de Rabia (si lo tenías)
-            modifiers.FlatBonusDamage += 1 * RageLevel; // Mantén esto si quieres el bonus plano de rabia
+            Player player = Main.player[Projectile.owner];
+            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
 
-            // 2. Bonus % Vida Máxima del Objetivo
-            // Calcula el 5% de la vida máxima del NPC objetivo
-            float percentDamage = target.lifeMax * 0.15f;
+            if (wakfuPlayer.BalanceMode)
+            {
+                // --- MODO BALANCEADO (Verde) ---
+                // Base: 30
+                int baseDamage = 30;
 
-            // Añade este daño como un bonus plano.
-            // Usamos FlatBonusDamage para que se sume DESPUÉS de otros multiplicadores (como críticos)
-            // pero ANTES de la defensa del enemigo.
-            modifiers.FlatBonusDamage += percentDamage;
-            modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+                // Aplicar escalado de Melee
+                float meleeDamage = player.GetTotalDamage(DamageClass.Melee).ApplyTo(baseDamage);
 
-            // Alternativa: Si quisieras que ignorase defensa (más poderoso):
-            // modifiers.FinalDamage += percentDamage; // Se añade al final, después de la defensa
+                // Aplicar multiplicador de Rabia (1 + Rage * 0.10)
+                float rageMultiplier = 1f + (RageLevel * 0.10f);
+
+                // Daño final
+                int finalDamage = (int)(meleeDamage * rageMultiplier);
+
+                modifiers.SourceDamage.Base = finalDamage;
+                modifiers.SourceDamage.Flat = 0;
+            }
+            else
+            {
+                // --- MODO ORIGINAL (Rojo) ---
+                // 1. Bonus de Rabia (si lo tenías)
+                modifiers.FlatBonusDamage += 1 * RageLevel; // Mantén esto si quieres el bonus plano de rabia
+
+                // 2. Bonus % Vida Máxima del Objetivo
+                // Calcula el 5% de la vida máxima del NPC objetivo
+                float percentDamage = target.lifeMax * 0.15f;
+
+                // Añade este daño como un bonus plano.
+                // Usamos FlatBonusDamage para que se sume DESPUÉS de otros multiplicadores (como críticos)
+                // pero ANTES de la defensa del enemigo.
+                modifiers.FlatBonusDamage += percentDamage;
+                modifiers.DefenseEffectiveness *= 0f; // Ignora defensa
+            }
         }
 
 

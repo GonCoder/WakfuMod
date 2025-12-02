@@ -112,6 +112,16 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.velocity.X *= DragFactor;
                 if (Math.Abs(Projectile.velocity.X) < 0.1f && State != 2) Projectile.velocity.X = 0f;
                 Projectile.rotation += Projectile.velocity.X * 0.05f; // Rotación leve
+
+                // --- Sincronización constante en Multiplayer ---
+                // Fuerza una actualización de red frecuente mientras se mueve para evitar desincronización visual
+                if (Main.netMode != NetmodeID.SinglePlayer && Projectile.owner == Main.myPlayer)
+                {
+                    if (Projectile.timeLeft % 3 == 0) // Actualizar cada 3 ticks
+                    {
+                        Projectile.netUpdate = true;
+                    }
+                }
             }
             // Comprobar si debe empezar a caer si está en estado inicial y sin velocidad
             else if (State == 0 && Projectile.velocity == Vector2.Zero)

@@ -10,13 +10,14 @@ using Terraria.ID;
 using Terraria.ModLoader.IO; // Para Save/Load Data
 using System.IO;
 using System;
+using System.Collections.Generic; // Para List<>
 using Microsoft.Xna.Framework.Input; // Para Netcode
 using WakfuMod.ModSystems; // Para FootballSystem
 using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -27,6 +28,19 @@ namespace WakfuMod.jugador
         public bool HideHeldYopukaSword = false; // Flag específico para la espada
 
         public bool HidePlayerForKick = false;
+
+        // --- NUEVO: Balance Mode ---
+        public bool BalanceMode = false;
+
+        // --- NUEVO: Variables del Xelor ---
+        public int xelorTeleportCooldown = 0;
+        public const int XelorTeleportBaseCooldown = 360; // 6 segundos
+        
+        public bool xelorTimeSuspensionActive = false;
+        public int xelorTimeSuspensionTimer = 0;
+        public int xelorAbility2Cooldown = 0;
+        public const int XelorAbility2BaseCooldown = 1200; // 20 segundos
+        public const int XelorTimeSuspensionDuration = 600; // 10 segundos
 
         // --- NUEVO: Variables del Zurcarac ---
         public bool zurcarakMinionActive = false; // ¿Está el gatito invocado?
@@ -81,6 +95,7 @@ namespace WakfuMod.jugador
 
         // Selatrop
         private double lastTeleportTime = 0;
+        public int portalPhysicsCooldown = 0; // Cooldown para evitar bucles de teletransporte en portales
 
         // --- Control de Estado Visual (Salto Yopuka) ---
         public void SetJumpVisuals(bool active)
@@ -110,7 +125,7 @@ namespace WakfuMod.jugador
             {
                 if (claseElegida == WakfuClase.Ninguna && !haMostradoMensajeClase && Main.GameUpdateCount > 120)
                 {
-                    Main.NewText("Press F1-F5 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-", Color.OrangeRed);
+                    Main.NewText("Press F1-F6 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-", Color.OrangeRed);
                     haMostradoMensajeClase = true;
                 }
                 HandleClaseSeleccion(); // Manejar la selección si aún no tiene clase
@@ -123,6 +138,101 @@ namespace WakfuMod.jugador
             if (rageCooldown > 0) rageCooldown--;
             if (zurcarakAbility1Cooldown > 0) zurcarakAbility1Cooldown--;
             if (zurcarakAbility2Cooldown > 0) zurcarakAbility2Cooldown--;
+            if (portalPhysicsCooldown > 0) portalPhysicsCooldown--;
+            if (xelorTeleportCooldown > 0) xelorTeleportCooldown--;
+            if (xelorAbility2Cooldown > 0) xelorAbility2Cooldown--;
+
+            // --- Lógica Xelor Time Suspension ---
+            if (xelorTimeSuspensionActive)
+            {
+                // Solo el dueño controla el tiempo
+                if (Main.myPlayer == Player.whoAmI)
+                {
+                    xelorTimeSuspensionTimer--;
+                    if (xelorTimeSuspensionTimer <= 0)
+                    {
+                        // Se acabó el tiempo -> REBOBINAR AUTOMÁTICAMENTE
+                        xelorTimeSuspensionActive = false;
+                        xelorAbility2Cooldown = XelorAbility2BaseCooldown;
+
+                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                        {
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.XelorTimeSuspension);
+                            packet.Write((byte)1); // Action: Rewind (Antes era 2: Clear)
+                            packet.Write((byte)Player.whoAmI);
+                            packet.Send();
+                        }
+
+                        Main.NewText("Time Rewind!", Color.MediumPurple);
+
+                        // Aplicar rewind localmente SIEMPRE
+                        for (int i = 0; i < Main.maxNPCs; i++)
+                        {
+                            if (Main.npc[i].active)
+                            {
+                                var g = Main.npc[i].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                                if (g.xelorSlowed)
+                                {
+                                    Main.npc[i].Center = g.xelorRewindPos;
+                                    // Main.npc[i].velocity = g.xelorOriginalVelocity; // No restaurar velocidad a NPCs
+                                    g.xelorSlowed = false;
+                                }
+                            }
+                        }
+                        for (int i = 0; i < Main.maxProjectiles; i++)
+                        {
+                            if (Main.projectile[i].active)
+                            {
+                                var g = Main.projectile[i].GetGlobalProjectile<Content.Globals.WakfuGlobalProjectile>();
+                                if (g.xelorSlowed)
+                                {
+                                    Main.projectile[i].Center = g.xelorRewindPos;
+                                    g.xelorSlowed = false;
+                                    Main.projectile[i].velocity = g.xelorOriginalVelocity; // Restaurar velocidad
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- APLICAR EFECTO CONTINUAMENTE (Para nuevos proyectiles/NPCs) ---
+            // Solo si sigue activo después de la comprobación de tiempo
+            if (xelorTimeSuspensionActive)
+            {
+                float range = 1200f;
+                // Proyectiles
+                for (int i = 0; i < Main.maxProjectiles; i++)
+                {
+                    if (Main.projectile[i].active && Main.projectile[i].hostile && Vector2.Distance(Player.Center, Main.projectile[i].Center) <= range)
+                    {
+                        var g = Main.projectile[i].GetGlobalProjectile<Content.Globals.WakfuGlobalProjectile>();
+                        if (!g.xelorSlowed)
+                        {
+                            g.xelorSlowed = true;
+                            g.xelorRewindPos = Main.projectile[i].Center; // Guardar posición actual como punto de rebobinado
+                            g.xelorOriginalVelocity = Main.projectile[i].velocity; // Guardar velocidad original
+                            Main.projectile[i].velocity *= 0.2f; // Aplicar ralentización UNA VEZ
+                        }
+                    }
+                }
+                // NPCs
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    if (Main.npc[i].active && !Main.npc[i].friendly && Vector2.Distance(Player.Center, Main.npc[i].Center) <= range)
+                    {
+                        var g = Main.npc[i].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                        if (!g.xelorSlowed)
+                        {
+                            g.xelorSlowed = true;
+                            g.xelorRewindPos = Main.npc[i].Center;
+                            g.xelorOriginalVelocity = Main.npc[i].velocity; // Guardar velocidad original (por si acaso)
+                            // Main.npc[i].velocity *= 0.2f; // No aplicar ralentización única a NPCs
+                        }
+                    }
+                }
+            }
 
             if (claseElegida == WakfuClase.Yopuka)
             {
@@ -214,7 +324,7 @@ namespace WakfuMod.jugador
                                     {
                                         // --- MÉTODO MÁS DIRECTO PARA BORRAR ---
                                         currentTile.HasTile = false; // Marca como que ya no tiene tile
-                                        currentTile.TileType = 0; // Resetea el tipo (opcional pero bueno)
+                                        currentTile.TileType = TileID.Dirt; // Resetea el tipo (opcional pero bueno)
                                                                   // WorldGen.SquareTileFrame(x, y, true); // Fuerza actualización de frames alrededor (Opcional)
                                                                   // --- FIN MÉTODO DIRECTO ---
 
@@ -249,29 +359,166 @@ namespace WakfuMod.jugador
                         case WakfuClase.Selatrop:
                             if (WakfuMod.Habilidad1Keybind.JustPressed) PortalHandler.TryPlacePortal(Player);
                             if (WakfuMod.Habilidad2Keybind.JustPressed) PortalHandler.ClosePortals(Player);
-                            // Lógica de teletransporte entre portales (basada en tu código original)
-                            if (PortalHandler.portal1.HasValue && PortalHandler.portal2.HasValue)
-                            {
-                                double currentTime = Main.gameTimeCache.TotalGameTime.TotalSeconds;
-                                if (currentTime - lastTeleportTime >= PortalHandler.TeleportCooldown)
-                                {
-                                    float dist1 = Vector2.DistanceSquared(Player.Center, PortalHandler.portal1.Value); // Squared
-                                    float dist2 = Vector2.DistanceSquared(Player.Center, PortalHandler.portal2.Value); // Squared
-                                    float activationRangeSq = 40f * 40f; // Rango al cuadrado
+                            // La lógica de teletransporte ahora se maneja en PortalProjectile.cs para que funcione con todos los jugadores
+                            break;
 
-                                    if (dist1 < activationRangeSq)
+                        case WakfuClase.Xelor:
+                            // Habilidad 1 (V): Teletransporte (Similar al Bastón de la Discordia)
+                            if (WakfuMod.Habilidad1Keybind.JustPressed && xelorTeleportCooldown <= 0)
+                            {
+                                Vector2 targetPos = Main.MouseWorld;
+                                // Validar colisión (no teletransportarse dentro de bloques sólidos)
+                                // Usamos el tamaño del jugador para comprobar si cabe
+                                Vector2 playerSize = new Vector2(Player.width, Player.height);
+                                Vector2 checkPos = targetPos - playerSize / 2f; // Centrar la comprobación
+
+                                if (!Collision.SolidCollision(checkPos, Player.width, Player.height))
+                                {
+                                    // Teletransportar
+                                    Player.Teleport(targetPos, 1, 0); 
+                                    Player.Center = targetPos; // Asegurar posición exacta
+                                    
+                                    // Sincronizar
+                                    if (Main.netMode == NetmodeID.MultiplayerClient)
                                     {
-                                        Vector2 targetPos = PortalHandler.portal2.Value;
-                                        Player.Teleport(targetPos, 1);
-                                        lastTeleportTime = currentTime;
-                                        // TODO: Sincronizar Teleport
+                                        NetMessage.SendData(MessageID.TeleportEntity, -1, -1, null, 0, (float)Player.whoAmI, targetPos.X, targetPos.Y, 1);
                                     }
-                                    else if (dist2 < activationRangeSq)
+
+                                    // Efectos
+                                    SoundEngine.PlaySound(new SoundStyle("WakfuMod/audio/NoxBlink"), Player.Center); // Sonido de teletransporte mágico
+                                    for (int i = 0; i < 30; i++)
                                     {
-                                        Vector2 targetPos = PortalHandler.portal1.Value;
-                                        Player.Teleport(targetPos, 1);
-                                        lastTeleportTime = currentTime;
-                                        // TODO: Sincronizar Teleport
+                                        Dust.NewDust(Player.position, Player.width, Player.height, DustID.Electric, 0, 0, 100, default, 1.5f);
+                                    }
+
+                                    // Cooldown
+                                    xelorTeleportCooldown = XelorTeleportBaseCooldown;
+                                }
+                                else
+                                {
+                                    // Feedback visual de fallo (opcional)
+                                    Main.NewText("Cannot teleport there!", Color.Red);
+                                }
+                            }
+
+                            // Habilidad 2 (X): Suspensión Temporal / Rebobinado
+                            if (WakfuMod.Habilidad2Keybind.JustPressed)
+                            {
+                                if (!xelorTimeSuspensionActive)
+                                {
+                                    // ACTIVAR
+                                    if (xelorAbility2Cooldown <= 0)
+                                    {
+                                        xelorTimeSuspensionActive = true;
+                                        xelorTimeSuspensionTimer = XelorTimeSuspensionDuration;
+
+                                        // Buscar objetivos
+                                        List<int> npcTargets = new List<int>();
+                                        List<Vector2> npcPositions = new List<Vector2>();
+                                        List<int> projTargets = new List<int>();
+                                        List<Vector2> projPositions = new List<Vector2>();
+
+                                        float range = 1200f;
+
+                                        for (int i = 0; i < Main.maxNPCs; i++)
+                                        {
+                                            if (Main.npc[i].active && !Main.npc[i].friendly && Vector2.Distance(Player.Center, Main.npc[i].Center) <= range)
+                                            {
+                                                npcTargets.Add(i);
+                                                npcPositions.Add(Main.npc[i].Center);
+                                            }
+                                        }
+
+                                        for (int i = 0; i < Main.maxProjectiles; i++)
+                                        {
+                                            if (Main.projectile[i].active && Main.projectile[i].hostile && Vector2.Distance(Player.Center, Main.projectile[i].Center) <= range)
+                                            {
+                                                projTargets.Add(i);
+                                                projPositions.Add(Main.projectile[i].Center);
+                                            }
+                                        }
+
+                                        // Enviar paquete
+                                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                                        {
+                                            ModPacket packet = Mod.GetPacket();
+                                            packet.Write((byte)WakfuMod.MessageType.XelorTimeSuspension);
+                                            packet.Write((byte)0); // Action: Activate
+                                            packet.Write((byte)Player.whoAmI);
+                                            
+                                            packet.Write(npcTargets.Count);
+                                            for(int i=0; i<npcTargets.Count; i++) { packet.Write(npcTargets[i]); packet.WriteVector2(npcPositions[i]); }
+                                            
+                                            packet.Write(projTargets.Count);
+                                            for(int i=0; i<projTargets.Count; i++) { packet.Write(projTargets[i]); packet.WriteVector2(projPositions[i]); }
+                                            
+                                            packet.Send();
+                                        }
+
+                                        // Efectos visuales locales
+                                        SoundEngine.PlaySound(SoundID.Item113, Player.Center); // Sonido mágico
+                                        Main.NewText("Time Suspension Activated!", Color.Purple);
+                                        
+                                        // Aplicar localmente SIEMPRE (para feedback instantáneo)
+                                        foreach(int id in npcTargets) {
+                                            if (id >= 0 && id < Main.maxNPCs) {
+                                                var g = Main.npc[id].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                                                g.xelorSlowed = true; g.xelorRewindPos = Main.npc[id].Center;
+                                                g.xelorOriginalVelocity = Main.npc[id].velocity;
+                                                // Main.npc[id].velocity *= 0.2f; // No aplicar ralentización única a NPCs
+                                            }
+                                        }
+                                        foreach(int id in projTargets) {
+                                            if (id >= 0 && id < Main.maxProjectiles) {
+                                                var g = Main.projectile[id].GetGlobalProjectile<Content.Globals.WakfuGlobalProjectile>();
+                                                g.xelorSlowed = true; g.xelorRewindPos = Main.projectile[id].Center;
+                                                g.xelorOriginalVelocity = Main.projectile[id].velocity;
+                                                Main.projectile[id].velocity *= 0.2f; // Aplicar ralentización UNA VEZ
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Cooldown msg
+                                    }
+                                }
+                                else
+                                {
+                                    xelorAbility2Cooldown = XelorAbility2BaseCooldown;
+                                    xelorTimeSuspensionActive = false; // <--- FIX: Desactivar estado activo
+
+                                    if (Main.netMode == NetmodeID.MultiplayerClient)
+                                    {
+                                        ModPacket packet = Mod.GetPacket();
+                                        packet.Write((byte)WakfuMod.MessageType.XelorTimeSuspension);
+                                        packet.Write((byte)1); // Action: Rewind
+                                        packet.Write((byte)Player.whoAmI);
+                                        packet.Send();
+                                    }
+
+                                    SoundEngine.PlaySound(SoundID.Item4, Player.Center); // Sonido diferente
+                                    Main.NewText("Time Rewind!", Color.MediumPurple);
+
+                                    // Aplicar rewind localmente SIEMPRE
+                                    for (int i = 0; i < Main.maxNPCs; i++) {
+                                        if (Main.npc[i].active) {
+                                            var g = Main.npc[i].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                                            if (g.xelorSlowed) {
+                                                Main.npc[i].Center = g.xelorRewindPos;
+                                                g.xelorSlowed = false;
+                                                // Main.npc[i].velocity = g.xelorOriginalVelocity; // No restaurar velocidad a NPCs
+                                            }
+                                        }
+                                    }
+                                    for (int i = 0; i < Main.maxProjectiles; i++) {
+                                        if (Main.projectile[i].active) {
+                                            var g = Main.projectile[i].GetGlobalProjectile<Content.Globals.WakfuGlobalProjectile>();
+                                            if (g.xelorSlowed) {
+                                                Main.projectile[i].Center = g.xelorRewindPos;
+                                                g.xelorSlowed = false;
+                                                Main.projectile[i].velocity = g.xelorOriginalVelocity; // Restaurar velocidad
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -288,6 +535,9 @@ namespace WakfuMod.jugador
                                 Vector2 spawn = new Vector2(Main.MouseWorld.X, Player.Center.Y - 700);
                                 Vector2 velocity = Vector2.UnitY * 25f;
 
+                                // --- SPAWN LOCAL (CLIENTE) ---
+                                // Spawneamos el proyectil localmente. Terraria se encarga de sincronizarlo
+                                // automáticamente porque es un proyectil propiedad del jugador local.
                                 int p = Projectile.NewProjectile(
                                     Player.GetSource_FromThis("YopukaSword"),
                                     spawn, velocity,
@@ -296,8 +546,9 @@ namespace WakfuMod.jugador
                                     ai0: 0, // ai[0] = HasStruck (empieza en 0)
                                     ai1: rageTicks // Pasar la rabia actual en ai[1]
                                 );
-                                // Ya no se necesita: Main.projectile[p].originalDamage = damage;
-                                // Ya no se necesita: Main.projectile[p].DamageType = DamageClass.Melee; (Se pone en SetDefaults)
+                                
+                                // Forzar actualización de red para asegurar que ai[1] (Rage) llegue a otros clientes
+                                Main.projectile[p].netUpdate = true;
 
                                 ConsumeRage(); // Consumir rabia
                                 espadaCooldown = 300; // 5 seg cooldown
@@ -305,21 +556,21 @@ namespace WakfuMod.jugador
                             // Habilidad 2: Salto Divino (Basado en tu código original)
                             if (WakfuMod.Habilidad2Keybind.JustPressed && rageTicks > 0 && espadaCooldown <= 0)
                             {
-                                // El proyectil YopukaJumpAbility ahora maneja la lógica del salto,
-                                // consumir rabia, aplicar buff y spawnear shockwaves.
-                                // Solo necesitamos spawnearlo pasando la rabia.
-
-                                Projectile.NewProjectile(
+                                // --- SPAWN LOCAL (CLIENTE) ---
+                                // Spawneamos el proyectil localmente para respuesta instantánea.
+                                int p = Projectile.NewProjectile(
                                     Player.GetSource_FromThis("YopukaJump"),
                                     Player.Center, Vector2.Zero, // Posición inicial, velocidad se calcula en OnSpawn
                                     ModContent.ProjectileType<YopukaJumpAbility>(),
                                     0, 0f, Player.whoAmI,
-                                    ai0: rageTicks // Pasar la rabia actual en ai[0]
-                                                   // ai1 (Direction) se establece en OnSpawn del proyectil
+                                    ai0: rageTicks, // Pasar la rabia actual en ai[0]
+                                    ai1: Player.direction // Pasar dirección en ai[1]
                                 );
 
-                                // Ya no necesitamos: Player.AddBuff(ModContent.BuffType<YopukaDefenseBuff>(), 1200); (El proyectil lo hace)
-                                // Ya no necesitamos: ConsumeRage(); (El proyectil lo hace)
+                                // Forzar actualización de red
+                                Main.projectile[p].netUpdate = true;
+
+                                ConsumeRage(); // Consumir rabia inmediatamente para feedback visual en UI
                                 espadaCooldown = 300; // Aplicar cooldown
                             }
                             break;
@@ -453,7 +704,15 @@ namespace WakfuMod.jugador
                                         {
                                             if (npc.active && !npc.friendly && npc.CanBeChasedBy(proj) && Vector2.DistanceSquared(npc.Center, explosionPosition) <= radius * radius)
                                             {
-                                                int dmg = 20 + (int)(npc.lifeMax * 0.03f);
+                                                int dmg = 0;
+                                                if (BalanceMode)
+                                                {
+                                                    dmg = (int)(30f * Player.GetDamage(DamageClass.Ranged).Multiplicative);
+                                                }
+                                                else
+                                                {
+                                                    dmg = 20 + (int)(npc.lifeMax * 0.03f);
+                                                }
                                                 // Aplicar daño usando modificadores del jugador
                                                 Player.ApplyDamageToNPC(npc, dmg, 0f, Math.Sign(npc.Center.X - explosionPosition.X), false, DamageClass.Summon); // O tu DamageClass preferida
                                             }
@@ -490,23 +749,22 @@ namespace WakfuMod.jugador
                                 if (!minionIsActuallyActive)
                                 {
                                     // --- Invocar Gatito ---
-                                    // Si ya hay uno por error, matarlo primero?
-
-                                    for (int i = 0; i < Main.maxProjectiles; i++)
+                                    if (Main.netMode == NetmodeID.MultiplayerClient)
                                     {
-                                        Projectile p = Main.projectile[i];
-                                        if (p.active && p.owner == Player.whoAmI && p.type == ModContent.ProjectileType<ZurcarakMinion>())
-                                        {
-                                            p.Kill();
-                                        }
+                                        ModPacket packet = Mod.GetPacket();
+                                        packet.Write((byte)WakfuMod.MessageType.SpawnZurcarakMinion);
+                                        packet.Write((byte)Player.whoAmI);
+                                        packet.Send();
                                     }
-                                    // Spawnea el minion en el jugador
-                                    Projectile.NewProjectile(Player.GetSource_FromThis("ZurcarakMinionSummon"),
-                                        Player.Center, Vector2.Zero,
-                                        ModContent.ProjectileType<ZurcarakMinion>(),
-                                        1, // Daño base 1 (el daño real es % vida)
-                                        0f, // Knockback base 0
-                                        Player.whoAmI);
+                                    else
+                                    {
+                                        Projectile.NewProjectile(Player.GetSource_FromThis("ZurcarakMinionSummon"),
+                                            Player.Center, Vector2.Zero,
+                                            ModContent.ProjectileType<ZurcarakMinion>(),
+                                            1, // Daño base 1 (el daño real es % vida)
+                                            0f, // Knockback base 0
+                                            Player.whoAmI);
+                                    }
                                     // Añadir el buff para mantenerlo vivo
                                     Player.AddBuff(ModContent.BuffType<ZurcarakMinionBuff>(), 2); // Duración 2 ticks, se refresca solo
                                 }
@@ -537,39 +795,40 @@ namespace WakfuMod.jugador
                                 }
                             } // Fin Habilidad 1
 
-                            // --- Habilidad 2: Lanzar el Dado ---
-                            if (WakfuMod.Habilidad2Keybind.JustPressed && zurcarakAbility2Cooldown <= 0)
-                            {
-                                // 1. Poner en Cooldown
-                                zurcarakAbility2Cooldown = ZurcarakAbility2BaseCooldown;
-
-                                // 2. Ocultar jugador (Señal para HideDrawLayers)
-                                IsRollingDie = true;
-
-                                // --- 3. Spawnea el proyectil visual del dado (CON OFFSETS) ---
-
-                                // Define tus offsets aquí (ajusta estos valores)
-                                float offsetX = 80f; // 40 píxeles delante del jugador
-                                float offsetY = -90f; // 60 píxeles POR ENCIMA del centro del jugador
-
-                                // Calcular la posición de spawn final
-                                Vector2 spawnPosition = Player.Center + new Vector2(Player.direction * offsetX, offsetY);
-
-                                Projectile.NewProjectile(
-                                    Player.GetSource_FromThis("ZurcarakDieCast"),
-                                    spawnPosition, // <-- Usar la posición con offset
-                                    Vector2.Zero, // El dado es estático, no necesita velocidad inicial
-                                    ModContent.ProjectileType<ZurcarakDie>(),
-                                    0, // Sin daño directo
-                                    0f,
-                                    Player.whoAmI
-                                // ya no necesitamos pasar la dirección en ai[0] si el dado no se mueve
-                                );
-
-                                // 4. Sonido de lanzar dado
-                                SoundEngine.PlaySound(SoundID.Item35, Player.position); // Sonido de "lanzar"
-                            }
-                            break; // Fin case Zurcarac    
+                                    // --- Habilidad 2: Lanzar el Dado ---
+                                    if (WakfuMod.Habilidad2Keybind.JustPressed && zurcarakAbility2Cooldown <= 0)
+                                    {
+                                        // 1. Poner en Cooldown
+                                        zurcarakAbility2Cooldown = ZurcarakAbility2BaseCooldown;
+        
+                                        // 2. Ocultar jugador (Señal para HideDrawLayers)
+                                        IsRollingDie = true;
+        
+                                        // --- 3. Spawnea el proyectil visual del dado (CON OFFSETS) ---
+        
+                                        // Define tus offsets aquí (ajusta estos valores)
+                                        float offsetX = 80f; // 40 píxeles delante del jugador
+                                        float offsetY = -90f; // 60 píxeles POR ENCIMA del centro del jugador
+        
+                                        // Calcular la posición de spawn final
+                                        Vector2 spawnPosition = Player.Center + new Vector2(Player.direction * offsetX, offsetY);
+        
+                                        Projectile.NewProjectile(
+                                            Player.GetSource_FromThis("ZurcarakDieCast"),
+                                            spawnPosition, // <-- Usar la posición con offset
+                                            Vector2.Zero, // El dado es estático, no necesita velocidad inicial
+                                            ModContent.ProjectileType<ZurcarakDie>(),
+                                            0, // Sin daño directo
+                                            0f,
+                                            Player.whoAmI
+                                        // ya no necesitamos pasar la dirección en ai[0] si el dado no se mueve
+                                        );
+        
+                                        // 4. Sonido de lanzar dado
+                                        SoundEngine.PlaySound(SoundID.Item35, Player.position); // Sonido de "lanzar"
+                                    }
+                                    break; // Fin case Zurcarac
+                            } // Fin del switch
                     }
                 } // --- Comprobar si la espada Yopuka está siendo usada con clic derecho ---
                   // Esto debe hacerse DESPUÉS de que CanUseItem/UseItem se hayan procesado potencialmente en el tick anterior,
@@ -601,8 +860,6 @@ namespace WakfuMod.jugador
                         HidePlayerForKick = false;
                     }
                 }
-
-            }
         } //Fin del Pre-update
 
         // --- Helper para encontrar minion ---
@@ -731,6 +988,12 @@ namespace WakfuMod.jugador
                     // Player.QuickSpawnItem(Player.GetSource_Misc("ClaseZurcarac"), ModContent.ItemType<ZurcarakStarterWeapon>()); // Reemplaza con tu arma
                 };
             }
+            else if (ks.IsKeyDown(Keys.F6))
+            {
+                claseSeleccionada = WakfuClase.Xelor;
+                mensaje = "¡You are Xelor!\nMaster of Time.\nSkill 1 (V): Teleport to cursor (6s CD).\nSkill 2 (X): Time Suspension (10s) / Rewind (20s CD).\nSlows enemies and projectiles, then rewinds them!";
+                colorMensaje = Color.Purple;
+            }
 
             if (claseSeleccionada != WakfuClase.Ninguna)
             {
@@ -836,6 +1099,8 @@ namespace WakfuMod.jugador
             tag["yopukaEspadaCD"] = espadaCooldown;
             tag["steamerTorretaCD"] = steamerTorretaCooldown;
             tag["steamerGranadaCD"] = steamerGranadaCooldown;
+            tag["xelorTeleportCD"] = xelorTeleportCooldown;
+            tag["BalanceMode"] = BalanceMode;
         }
         public override void LoadData(TagCompound tag)
         {
@@ -846,9 +1111,19 @@ namespace WakfuMod.jugador
             if (tag.ContainsKey("yopukaEspadaCD")) espadaCooldown = tag.Get<int>("yopukaEspadaCD");
             if (tag.ContainsKey("steamerTorretaCD")) steamerTorretaCooldown = tag.Get<int>("steamerTorretaCD");
             if (tag.ContainsKey("steamerGranadaCD")) steamerGranadaCooldown = tag.Get<int>("steamerGranadaCD");
+            if (tag.ContainsKey("xelorTeleportCD")) xelorTeleportCooldown = tag.Get<int>("xelorTeleportCD");
+            if (tag.ContainsKey("BalanceMode")) BalanceMode = tag.Get<bool>("BalanceMode");
 
             IsJumpingAsGod = false;
             haMostradoMensajeClase = claseElegida != WakfuClase.Ninguna;
+        }
+
+        public void ToggleBalanceMode()
+        {
+            BalanceMode = !BalanceMode;
+            string status = BalanceMode ? "ON (Green)" : "OFF (Red)";
+            Color color = BalanceMode ? Color.Green : Color.Red;
+            Main.NewText($"Wakfu Balance Mode: {status}", color);
         }
 
         // --- Desconexión ---

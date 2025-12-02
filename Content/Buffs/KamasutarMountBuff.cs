@@ -27,6 +27,9 @@ namespace WakfuMod.Content.Buffs // Ajusta el namespace
             // Mantener el mountType del jugador asignado
             player.mount.SetMount(ModContent.MountType<KamasutarSheet>(), player);
             player.buffTime[buffIndex] = 10; // Mantener el buff activo (se resetea cada tick por el sistema de monturas)
+
+            // --- EFECTO SPELUNKER (Ver Minerales) ---
+            player.findTreasure = true;
         }
     }
 }

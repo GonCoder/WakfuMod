@@ -48,15 +48,35 @@ namespace WakfuMod.Content.Projectiles
             HasLanded = false;
             LandingTimer = 0;
 
-            if (source is EntitySource_Parent parentSource && parentSource.Entity is Player player)
+            // Intentar obtener el jugador desde la fuente, o desde Projectile.owner si falla (cliente MP)
+            Player player = null;
+            if (source is EntitySource_Parent parentSource && parentSource.Entity is Player p)
+            {
+                player = p;
+            }
+            else if (Main.player.IndexInRange(Projectile.owner))
+            {
+                player = Main.player[Projectile.owner];
+            }
+
+            if (player != null)
             {
                 var modPlayer = player.GetModPlayer<WakfuPlayer>();
 
-                RageAtJump = modPlayer.GetRageTicks();
-                Direction = player.direction;
+                // Si ai[0] (Rage) ya viene sincronizado (no es 0), lo usamos. Si no, intentamos leerlo.
+                // En el servidor (origen), ai[0] se establece aquí. En cliente, ya viene.
+                if (RageAtJump == 0) RageAtJump = modPlayer.GetRageTicks();
+                
+                // Lo mismo para la dirección
+                if (Direction == 0) Direction = player.direction;
 
-                modPlayer.ConsumeRage();
-                modPlayer.SetJumpVisuals(true); // Activar invisibilidad
+                // Solo consumir rabia si somos el dueño (para evitar doble consumo o desincronización)
+                if (player.whoAmI == Main.myPlayer)
+                {
+                    modPlayer.ConsumeRage();
+                }
+                
+                modPlayer.SetJumpVisuals(true); // Activar invisibilidad (Visual, seguro en cliente)
 
                 player.AddBuff(BuffID.Ironskin, 120 * RageAtJump);
 
@@ -190,6 +210,19 @@ namespace WakfuMod.Content.Projectiles
             // Spawn Shockwaves (solo dueño)
             if (Main.myPlayer == Projectile.owner) {
                 int damage = 1 + 1 * RageAtJump; // Ajustar daño base si es necesario
+                
+                // --- MODO BALANCEADO: Ajustar daño base de las shockwaves generadas por el salto ---
+                var modPlayer = player.GetModPlayer<WakfuPlayer>();
+                if (modPlayer.BalanceMode)
+                {
+                    // El daño se calculará dentro de YopukaShockwaveProjectile.ModifyHitNPC
+                    // Pero necesitamos pasar un valor base razonable o dejar que el proyectil lo maneje.
+                    // Como YopukaShockwaveProjectile usa 'rageLevel' (ai[0]) para calcular su daño base en Balance Mode,
+                    // aquí solo necesitamos asegurarnos de pasar la rabia correcta.
+                    // El 'damage' pasado aquí (Projectile.damage) es ignorado en ModifyHitNPC del shockwave en Balance Mode.
+                    damage = 1; // Valor dummy
+                }
+
                 int shockwaveRage = RageAtJump;
                 for (int i = -1; i <= 1; i += 2) {
                     // Spawn un poco más arriba para que no spawneen bajo tierra
@@ -203,7 +236,34 @@ namespace WakfuMod.Content.Projectiles
             }
         }
 
-       public override void OnKill(int timeLeft)
+        // --- AÑADIR ModifyHitNPC para el daño del propio salto (si golpeara) ---
+        public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
+        {
+            Player player = Main.player[Projectile.owner];
+            var modPlayer = player.GetModPlayer<WakfuPlayer>();
+
+            if (modPlayer.BalanceMode)
+            {
+                // --- MODO BALANCEADO (Verde) ---
+                // Base: 20
+                int baseDamage = 20;
+
+                // Aplicar escalado de Melee
+                float meleeDamage = player.GetTotalDamage(DamageClass.Melee).ApplyTo(baseDamage);
+
+                // Aplicar multiplicador de Rabia (1 + Rage * 0.10)
+                float rageMultiplier = 1f + (RageAtJump * 0.10f);
+
+                // Daño final
+                int finalDamage = (int)(meleeDamage * rageMultiplier);
+
+                modifiers.SourceDamage.Base = finalDamage;
+                modifiers.SourceDamage.Flat = 0;
+            }
+            // Si no es Balance Mode, usa el daño por defecto del proyectil (que es 0 en SetDefaults, así que no hace daño salvo que se cambie)
+        }
+
+        public override void OnKill(int timeLeft)
         {
             // --- EFECTO DE PARTÍCULAS DIVINAS (FINAL) ---
             if (Main.netMode != NetmodeID.Server)
