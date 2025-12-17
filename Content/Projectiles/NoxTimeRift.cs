@@ -45,10 +45,17 @@ namespace WakfuMod.Content.Projectiles
             Projectile.ignoreWater = true;
             Projectile.aiStyle = -1;
             Projectile.damage = 0; // No hace daño directo
+            Projectile.netImportant = true; // Sincronizar siempre este proyectil
         }
 
         public override void AI()
         {
+            // --- NETCODE: Sincronizar posición con el servidor ---
+            if (Main.netMode == NetmodeID.Server && Projectile.timeLeft % 30 == 0)
+            {
+                Projectile.netUpdate = true;
+            }
+
             Projectile.velocity = Vector2.Zero;
 
             // --- LÓGICA DE ANIMACIÓN (AQUÍ ES DONDE DEBE ESTAR) ---

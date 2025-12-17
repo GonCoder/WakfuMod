@@ -21,6 +21,23 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox // Asegúrate de que el namespace sea
             NPCID.Sets.NPCBestiaryDrawOffset.Add(Type, bestiaryData);
         }
 
+        // --- NETCODE: Sincronización de variables adicionales ---
+        public override void SendExtraAI(System.IO.BinaryWriter writer)
+        {
+            writer.Write(NPC.ai[0]); // Nox parent index
+            writer.Write(NPC.ai[1]); // Timer / angle
+            writer.Write(NPC.ai[2]); // Target player / angle offset
+            writer.Write(NPC.ai[3]); // Mode (0=orbital, 1=attacker, 2=dying)
+        }
+
+        public override void ReceiveExtraAI(System.IO.BinaryReader reader)
+        {
+            NPC.ai[0] = reader.ReadSingle();
+            NPC.ai[1] = reader.ReadSingle();
+            NPC.ai[2] = reader.ReadSingle();
+            NPC.ai[3] = reader.ReadSingle();
+        }
+
         public override void SetDefaults()
         {
             NPC.width = 24;
@@ -34,6 +51,7 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox // Asegúrate de que el namespace sea
             NPC.noTileCollide = true;
             NPC.HitSound = SoundID.NPCHit15;
             NPC.DeathSound = SoundID.NPCDeath7;
+            NPC.netAlways = true; // Siempre sincronizar este NPC
             // IMPORTANTE: Un NPC con vida 1 no puede ser dañado por defecto.
             // Si la hitbox expandida debe hacer daño, el daño de contacto original debe ser 0,
             // y el daño real debe aplicarse de otra forma (como un proyectil).

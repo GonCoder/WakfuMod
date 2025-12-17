@@ -65,8 +65,11 @@ namespace WakfuMod.Content.Items.BossSpawners // Ajusta el namespace
                 return;
             }
 
-            // --- Tus mensajes y sonidos se mantienen intactos ---
-            SoundEngine.PlaySound(SoundID.Roar, player.position);
+            // --- Sonido de Roar solo en clientes (no servidor dedicado) ---
+            if (Main.netMode != NetmodeID.Server)
+            {
+                SoundEngine.PlaySound(SoundID.Roar, player.position);
+            }
             
             if (Main.netMode == NetmodeID.Server)
             {
