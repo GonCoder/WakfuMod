@@ -74,7 +74,9 @@ namespace WakfuMod.Content.NPCs.Town
 
         public override bool CanTownNPCSpawn(int numTownNPCs)
         {
-            return ModContent.GetInstance<NoxDefeatSystem>().noxDefeated;
+            var system = ModContent.GetInstance<NoxDefeatSystem>();
+            // Requiere vencer a Nox O matar 50 Whisperers
+            return system.noxDefeated || system.whisperersKilled >= 50;
         }
 
         public override List<string> SetNPCNameList()
@@ -137,6 +139,16 @@ namespace WakfuMod.Content.NPCs.Town
                     shopSpecialCurrency = kamaCurrencyId
                 })
                 .Add(new Item(ModContent.ItemType<TymadorKick>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<HipermagoFireEarthStaff>())
+                {
+                    shopCustomPrice = 1,
+                    shopSpecialCurrency = kamaCurrencyId
+                })
+                .Add(new Item(ModContent.ItemType<HipermagoAirWaterStaff>())
                 {
                     shopCustomPrice = 1,
                     shopSpecialCurrency = kamaCurrencyId

@@ -561,11 +561,18 @@ namespace WakfuMod.Content.NPCs
             }
         }
 
+        public override void OnKill()
+        {
+            // Incrementar contador de Whisperers matados
+            ModSystems.NoxDefeatSystem.AddWhispererKill();
+        }
 
         public override void ModifyNPCLoot(NPCLoot npcLoot)
         {
             npcLoot.Add(ItemDropRule.Common(ItemID.RegenerationPotion, 10, 1, 1));
             npcLoot.Add(ItemDropRule.Common(ItemID.IronskinPotion, 10, 1, 1));
+            // 5% chance to drop 1 Kama
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Content.Items.Currency.Kama>(), 20, 1, 1));
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)

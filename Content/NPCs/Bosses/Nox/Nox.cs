@@ -6,6 +6,7 @@ using System;
 using Terraria.Audio;
 using Terraria.GameContent.ItemDropRules;
 using WakfuMod.Content.Items.BossSpawners;
+using WakfuMod.Content.Items.Currency;
 using WakfuMod.Content.Projectiles;
 using WakfuMod.ModSystems;
 using Microsoft.Xna.Framework.Graphics;
@@ -411,6 +412,9 @@ namespace WakfuMod.Content.NPCs.Bosses.Nox
 
         public override void ModifyNPCLoot(NPCLoot npcLoot)
         {
+            // Drop de 10 Kamas (Nox es más difícil que Toross)
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<Kama>(), 1, 10, 15));
+            
             var classicDrops = new LeadingConditionRule(new Conditions.NotExpert());
             classicDrops.OnSuccess(ItemDropRule.Common(ModContent.ItemType<NoxSpawner>(), 1));
             classicDrops.OnSuccess(ItemDropRule.Common(ItemID.SoulofNight, 1, 5, 10));

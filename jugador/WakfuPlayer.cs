@@ -17,7 +17,7 @@ using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -41,6 +41,73 @@ namespace WakfuMod.jugador
         public int xelorAbility2Cooldown = 0;
         public const int XelorAbility2BaseCooldown = 1200; // 20 segundos
         public const int XelorTimeSuspensionDuration = 600; // 10 segundos
+
+        // --- NUEVO: Variables del Hipermago ---
+        public int hipermagoAbility1Cooldown = 0;
+        public const int HipermagoAbility1BaseCooldown = 120; // 2 segundos (testing)
+        public int hipermagoAbility2Cooldown = 0;
+        public const int HipermagoAbility2BaseCooldown = 120; // 2 segundos (testing)
+        
+        // CD para combo elemental (independiente de la spear)
+        public int hipermagoElementalComboCooldown = 0;
+        public const int HipermagoElementalComboCooldown = 300; // 5 segundos
+        
+        // CDs de las armas elementales (Fuego/Tierra y Aire/Agua)
+        public int hipermagoFireCooldown = 0;
+        public const int HipermagoFireBaseCooldown = 180; // 3 segundos
+        public int hipermagoEarthCooldown = 0;
+        public const int HipermagoEarthBaseCooldown = 90; // 1.5 segundos
+        public int hipermagoAirCooldown = 0;
+        public const int HipermagoAirBaseCooldown = 60; // 1 segundo
+        public int hipermagoWaterCooldown = 0;
+        public const int HipermagoWaterBaseCooldown = 120; // 2 segundos
+        
+        // Sistema para disparar la segunda bola con delay
+        public int hipermagoSecondBallTimer = 0; // Timer para la segunda bola
+        public bool hipermagoSecondBallPending = false;
+        public Vector2 hipermagoSecondBallDirection = Vector2.Zero;
+        
+        // --- Sistema de Runas Elementales ---
+        // Las runas se acumulan al atacar con las armas elementales (máximo 2 EN TOTAL)
+        // Arma 1: Fuego (clic izq) / Tierra (clic der)
+        // Arma 2: Aire (clic izq) / Agua (clic der)
+        public int hipermagoFireRunes = 0;     // Runas de fuego
+        public int hipermagoEarthRunes = 0;    // Runas de tierra
+        public int hipermagoAirRunes = 0;      // Runas de aire
+        public int hipermagoWaterRunes = 0;    // Runas de agua
+        public const int MAX_TOTAL_RUNES = 2;  // Máximo de runas EN TOTAL
+        
+        // Cuando tiene 2 runas, la habilidad 2 cambia de comportamiento
+        public int GetTotalRunes() => hipermagoFireRunes + hipermagoEarthRunes + hipermagoAirRunes + hipermagoWaterRunes;
+        public bool HasRuneCombo() => GetTotalRunes() >= 2;
+        
+        // Método para añadir una runa (llamado desde las armas)
+        public void AddRune(string element)
+        {
+            // Solo añadir si no hemos llegado al máximo total
+            if (GetTotalRunes() >= MAX_TOTAL_RUNES) return;
+            
+            switch (element.ToLower())
+            {
+                case "fire": hipermagoFireRunes++; break;
+                case "earth": hipermagoEarthRunes++; break;
+                case "air": hipermagoAirRunes++; break;
+                case "water": hipermagoWaterRunes++; break;
+            }
+            // TODO: Sincronizar runas en multiplayer
+        }
+        
+        // Método para consumir runas y resetear CDs (para combo Fuego+Tierra)
+        public void ConsumeRunesForCombo()
+        {
+            hipermagoFireRunes = 0;
+            hipermagoEarthRunes = 0;
+            hipermagoAirRunes = 0;
+            hipermagoWaterRunes = 0;
+            hipermagoAbility1Cooldown = 0; // Resetear CD de las bolas de luz
+            hipermagoAbility2Cooldown = 0; // Resetear CD de la spear
+            // TODO: Sincronizar en multiplayer
+        }
 
         // --- NUEVO: Variables del Zurcarac ---
         public bool zurcarakMinionActive = false; // ¿Está el gatito invocado?
@@ -79,7 +146,13 @@ namespace WakfuMod.jugador
             // --- Resetear estado del minion ---
             // El buff se encargará de mantenerlo activo si existe
             zurcarakMinionActive = false;
+            
+            // Resetear bonus de daño crítico
+            critDamageBonus = 0f;
         }
+        
+        // Bonus de daño crítico (multiplicador adicional)
+        public float critDamageBonus = 0f;
 
         // Yopuka
         private int rageTicks = 0;
@@ -125,7 +198,7 @@ namespace WakfuMod.jugador
             {
                 if (claseElegida == WakfuClase.Ninguna && !haMostradoMensajeClase && Main.GameUpdateCount > 120)
                 {
-                    Main.NewText("Press F1-F6 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-", Color.OrangeRed);
+                    Main.NewText("Press F1-F7 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-", Color.OrangeRed);
                     haMostradoMensajeClase = true;
                 }
                 HandleClaseSeleccion(); // Manejar la selección si aún no tiene clase
@@ -141,6 +214,13 @@ namespace WakfuMod.jugador
             if (portalPhysicsCooldown > 0) portalPhysicsCooldown--;
             if (xelorTeleportCooldown > 0) xelorTeleportCooldown--;
             if (xelorAbility2Cooldown > 0) xelorAbility2Cooldown--;
+            if (hipermagoAbility1Cooldown > 0) hipermagoAbility1Cooldown--;
+            if (hipermagoAbility2Cooldown > 0) hipermagoAbility2Cooldown--;
+            if (hipermagoElementalComboCooldown > 0) hipermagoElementalComboCooldown--;
+            if (hipermagoFireCooldown > 0) hipermagoFireCooldown--;
+            if (hipermagoEarthCooldown > 0) hipermagoEarthCooldown--;
+            if (hipermagoAirCooldown > 0) hipermagoAirCooldown--;
+            if (hipermagoWaterCooldown > 0) hipermagoWaterCooldown--;
 
             // --- Lógica Xelor Time Suspension ---
             if (xelorTimeSuspensionActive)
@@ -520,6 +600,417 @@ namespace WakfuMod.jugador
                                             }
                                         }
                                     }
+                                }
+                            }
+                            break;
+
+                        case WakfuClase.Hipermago:
+                            // Habilidad 1 (V): Doble Bola de Energía de Luz
+                            if (WakfuMod.Habilidad1Keybind.JustPressed && hipermagoAbility1Cooldown <= 0 && !hipermagoSecondBallPending)
+                            {
+                                Vector2 direction = Main.MouseWorld - Player.Center;
+                                direction.Normalize();
+                                float speed = 12f;
+                                int baseDamage = 50; // Daño base de cada bola
+                                float knockback = 3f;
+                                
+                                // Disparo de la primera bola
+                                int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoLightBall>();
+                                
+                                // Posición elevada para evitar colisión con el suelo
+                                Vector2 spawnPos = Player.Center - new Vector2(0, 30);
+                                
+                                // Primera bola (ai[0] = 0)
+                                Projectile.NewProjectile(
+                                    Player.GetSource_FromThis(),
+                                    spawnPos,
+                                    direction * speed,
+                                    projType,
+                                    baseDamage,
+                                    knockback,
+                                    Player.whoAmI,
+                                    0f, // ai[0] = 0 -> Primera bola
+                                    Player.whoAmI // ai[1] = ID del jugador
+                                );
+                                
+                                // Programar segunda bola para 0.7 segundos después (42 ticks)
+                                hipermagoSecondBallPending = true;
+                                hipermagoSecondBallTimer = 42; // 0.7 segundos
+                                hipermagoSecondBallDirection = direction;
+                                
+                                // Efectos
+                                SoundEngine.PlaySound(SoundID.Item72, Player.Center);
+                                for (int i = 0; i < 10; i++)
+                                {
+                                    Dust.NewDust(Player.Center, 0, 0, DustID.GoldFlame, 
+                                        Main.rand.NextFloat(-2f, 2f), Main.rand.NextFloat(-2f, 2f), 100, default, 1.2f);
+                                }
+                                
+                                // Cooldown
+                                hipermagoAbility1Cooldown = HipermagoAbility1BaseCooldown;
+                            }
+                            
+                            // Disparar segunda bola cuando el timer llegue a 0
+                            if (hipermagoSecondBallPending)
+                            {
+                                hipermagoSecondBallTimer--;
+                                if (hipermagoSecondBallTimer <= 0)
+                                {
+                                    hipermagoSecondBallPending = false;
+                                    
+                                    float speed = 12f;
+                                    int baseDamage = 50;
+                                    float knockback = 3f;
+                                    int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoLightBall>();
+                                    
+                                    // Posición elevada para evitar colisión con el suelo
+                                    Vector2 spawnPos = Player.Center - new Vector2(0, 30);
+                                    
+                                    // Segunda bola (ai[0] = 1)
+                                    Projectile.NewProjectile(
+                                        Player.GetSource_FromThis(),
+                                        spawnPos,
+                                        hipermagoSecondBallDirection * speed,
+                                        projType,
+                                        baseDamage,
+                                        knockback,
+                                        Player.whoAmI,
+                                        1f, // ai[0] = 1 -> Segunda bola
+                                        Player.whoAmI
+                                    );
+                                    
+                                    // Efectos de la segunda bola
+                                    SoundEngine.PlaySound(SoundID.Item72, Player.Center);
+                                    for (int i = 0; i < 10; i++)
+                                    {
+                                        Dust.NewDust(Player.Center, 0, 0, DustID.GoldFlame, 
+                                            Main.rand.NextFloat(-2f, 2f), Main.rand.NextFloat(-2f, 2f), 100, default, 1.2f);
+                                    }
+                                }
+                            }
+                            
+                            // Habilidad 2 (X): Holy Spear o Combo Elemental
+                            if (WakfuMod.Habilidad2Keybind.JustPressed)
+                            {
+                                if (HasRuneCombo() && hipermagoElementalComboCooldown <= 0)
+                                {
+                                    // --- TIENE 2 RUNAS Y COMBO DISPONIBLE ---
+                                    
+                                    Vector2 targetPos = Main.MouseWorld;
+                                    
+                                    if (hipermagoFireRunes >= 1 && hipermagoEarthRunes >= 1)
+                                    {
+                                        // COMBO FUEGO+TIERRA: Lluvia de Meteoritos
+                                        int meteorDamage = 40;
+                                        float knockback = 5f;
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoMeteor>();
+                                        
+                                        // Disparar 5 meteoritos desde el cielo - MUY DISPERSOS
+                                        for (int i = 0; i < 5; i++)
+                                        {
+                                            float offsetX = Main.rand.NextFloat(-400f, 400f);
+                                            float offsetY = Main.rand.NextFloat(-100f, 100f);
+                                            Vector2 spawnPos = targetPos + new Vector2(offsetX, -700f - offsetY);
+                                            
+                                            Vector2 direction = new Vector2(Main.rand.NextFloat(-0.3f, 0.3f), 1f);
+                                            direction.Normalize();
+                                            float speed = 5f + Main.rand.NextFloat(-1f, 1f);
+                                            
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                spawnPos,
+                                                direction * speed,
+                                                projType,
+                                                meteorDamage,
+                                                knockback,
+                                                Player.whoAmI
+                                            );
+                                        }
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item45, Player.Center);
+                                    }
+                                    else if (hipermagoFireRunes >= 1 && hipermagoAirRunes >= 1)
+                                    {
+                                        // COMBO FUEGO+AIRE: Tornado de Fuego
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoFireTornado>();
+                                        
+                                        // Encontrar el bloque más cercano al cursor (buscar hacia abajo)
+                                        Vector2 cursor = targetPos;
+                                        Vector2 spawnPos = cursor;
+                                        int tornadoHeight = 240; // Altura del tornado
+                                        bool foundGround = false;
+                                        
+                                        for (int i = 0; i < 60; i++)
+                                        {
+                                            Vector2 check = cursor + new Vector2(0, i * 16);
+                                            Point coords = check.ToTileCoordinates();
+                                            if (WorldGen.InWorld(coords.X, coords.Y, 10))
+                                            {
+                                                Tile tile = Framing.GetTileSafely(coords.X, coords.Y);
+                                                if (tile.HasTile && (Main.tileSolid[tile.TileType] || TileID.Sets.Platforms[tile.TileType]))
+                                                {
+                                                    // El suelo está en coords.Y * 16
+                                                    // El proyectil se crea con Center en spawnPos
+                                                    // Para que la BASE esté en el suelo: Center.Y = suelo - (altura/2)
+                                                    float groundY = coords.Y * 16f;
+                                                    spawnPos = new Vector2(cursor.X, groundY - (tornadoHeight / 2f));
+                                                    foundGround = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (foundGround)
+                                        {
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                spawnPos,
+                                                Vector2.Zero,
+                                                projType,
+                                                10, // 10 de daño por tick
+                                                0f, // Sin knockback
+                                                Player.whoAmI
+                                            );
+                                            
+                                            SoundEngine.PlaySound(SoundID.Item74, spawnPos);
+                                        }
+                                    }
+                                    else if (hipermagoFireRunes >= 1 && hipermagoWaterRunes >= 1)
+                                    {
+                                        // COMBO FUEGO+AGUA: Explosiones de Vapor (ceguera)
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoSteamExplosion>();
+                                        
+                                        // 5 explosiones erráticas alrededor del cursor
+                                        for (int i = 0; i < 5; i++)
+                                        {
+                                            Vector2 offset = Main.rand.NextVector2Circular(80f, 80f);
+                                            Vector2 explosionPos = targetPos + offset;
+                                            
+                                            // Delay aleatorio para cada explosión (usando ai[0])
+                                            int delay = i * 8 + Main.rand.Next(0, 5);
+                                            
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                explosionPos,
+                                                Vector2.Zero,
+                                                projType,
+                                                20, // 20 de daño por explosión
+                                                2f,
+                                                Player.whoAmI,
+                                                delay // ai[0] = delay antes de aparecer
+                                            );
+                                        }
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item13, targetPos); // Sonido de vapor
+                                    }
+                                    else if (hipermagoAirRunes >= 1 && hipermagoEarthRunes >= 1)
+                                    {
+                                        // COMBO AIRE+TIERRA: Remolino de Escombros
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoDebrisWhirl>();
+                                        int damage = 10; // 10 de daño cada medio segundo
+                                        
+                                        // Crear 4 rocas orbitando alrededor del jugador
+                                        for (int i = 0; i < 4; i++)
+                                        {
+                                            float angleOffset = (MathHelper.TwoPi / 4f) * i; // Distribuir en círculo
+                                            
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                Player.Center,
+                                                Vector2.Zero,
+                                                projType,
+                                                damage,
+                                                3f,
+                                                Player.whoAmI,
+                                                angleOffset // ai[0] = ángulo inicial
+                                            );
+                                        }
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item66, Player.Center); // Sonido de viento
+                                    }
+                                    else if (hipermagoFireRunes >= 2)
+                                    {
+                                        // COMBO 2x FUEGO: Explosión MEGA (triple tamaño, triple daño)
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoFireExplosion>();
+                                        int megaDamage = 60; // Triple de 20
+                                        
+                                        Projectile proj = Main.projectile[Projectile.NewProjectile(
+                                            Player.GetSource_FromThis(),
+                                            targetPos,
+                                            Vector2.Zero,
+                                            projType,
+                                            megaDamage,
+                                            3f,
+                                            Player.whoAmI,
+                                            3f // ai[0] = scale factor (3x para mega explosión)
+                                        )];
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item74, targetPos); // Sonido épico
+                                    }
+                                    else if (hipermagoEarthRunes >= 2)
+                                    {
+                                        // COMBO 2x TIERRA: Roca MEGA (triple tamaño, doble daño)
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoEarthRock>();
+                                        int megaDamage = 100; // Doble de 50
+                                        
+                                        Vector2 spawnPos = new Vector2(targetPos.X, targetPos.Y - 600);
+                                        Vector2 fallVelocity = new Vector2(0, 12f);
+                                        
+                                        Projectile proj = Main.projectile[Projectile.NewProjectile(
+                                            Player.GetSource_FromThis(),
+                                            spawnPos,
+                                            fallVelocity,
+                                            projType,
+                                            megaDamage,
+                                            8f,
+                                            Player.whoAmI
+                                        )];
+                                        proj.scale = 3f; // Triple de tamaño
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item14, Player.Center);
+                                    }
+                                    else if (hipermagoWaterRunes >= 2)
+                                    {
+                                        // COMBO 2x AGUA: Burbuja que atrapa enemigos
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoBubble>();
+                                        
+                                        Projectile.NewProjectile(
+                                            Player.GetSource_FromThis(),
+                                            targetPos,
+                                            Vector2.Zero,
+                                            projType,
+                                            1, // 1 de daño por tick
+                                            0f, // Sin knockback
+                                            Player.whoAmI
+                                        );
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item85, targetPos);
+                                    }
+                                    else if (hipermagoAirRunes >= 1 && hipermagoWaterRunes >= 1)
+                                    {
+                                        // COMBO AIRE+AGUA: Buff de velocidad, ataque, daño, vuelo, regen + curación
+                                        Player.AddBuff(ModContent.BuffType<Content.Buffs.AirWaterBuff>(), 600); // 10 segundos
+                                        
+                                        // Curar 30 de vida
+                                        Player.Heal(30);
+                                        
+                                        // Efecto visual de agua y viento
+                                        for (int i = 0; i < 20; i++)
+                                        {
+                                            int dustType = Main.rand.NextBool() ? DustID.Cloud : DustID.Water;
+                                            Vector2 velocity = Main.rand.NextVector2Circular(5f, 5f);
+                                            int dust = Dust.NewDust(Player.position, Player.width, Player.height, 
+                                                dustType, velocity.X, velocity.Y - 2f, 100, default, 1.2f);
+                                            Main.dust[dust].noGravity = true;
+                                        }
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item66, Player.Center);
+                                    }
+                                    else if (hipermagoEarthRunes >= 1 && hipermagoWaterRunes >= 1)
+                                    {
+                                        // COMBO TIERRA+AGUA: Buff de defensa, anti-kb, anti-lava, regen + curación
+                                        Player.AddBuff(ModContent.BuffType<Content.Buffs.EarthWaterBuff>(), 600); // 10 segundos
+                                        
+                                        // Curar 50 de vida
+                                        Player.Heal(50);
+                                        
+                                        // Efecto visual de tierra y agua (barro)
+                                        for (int i = 0; i < 20; i++)
+                                        {
+                                            int dustType = Main.rand.NextBool() ? DustID.Dirt : DustID.Water;
+                                            Vector2 velocity = Main.rand.NextVector2Circular(4f, 4f);
+                                            int dust = Dust.NewDust(Player.position, Player.width, Player.height, 
+                                                dustType, velocity.X, velocity.Y, 100, default, 1f);
+                                            Main.dust[dust].noGravity = false;
+                                        }
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item13, Player.Center);
+                                    }
+                                    else if (hipermagoAirRunes >= 2)
+                                    {
+                                        // COMBO 2x AIRE: Tornado de Viento (lanza enemigos hacia arriba)
+                                        int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoWindTornado>();
+                                        
+                                        // Encontrar el bloque más cercano al cursor (buscar hacia abajo)
+                                        Vector2 cursor = targetPos;
+                                        Vector2 spawnPos = cursor;
+                                        int tornadoHeight = 240; // Altura del tornado
+                                        bool foundGround = false;
+                                        
+                                        for (int i = 0; i < 60; i++)
+                                        {
+                                            Vector2 check = cursor + new Vector2(0, i * 16);
+                                            Point coords = check.ToTileCoordinates();
+                                            if (WorldGen.InWorld(coords.X, coords.Y, 10))
+                                            {
+                                                Tile tile = Framing.GetTileSafely(coords.X, coords.Y);
+                                                if (tile.HasTile && (Main.tileSolid[tile.TileType] || TileID.Sets.Platforms[tile.TileType]))
+                                                {
+                                                    // El suelo está en coords.Y * 16
+                                                    // El proyectil se crea con Center en spawnPos
+                                                    // Para que la BASE esté en el suelo: Center.Y = suelo - (altura/2)
+                                                    float groundY = coords.Y * 16f;
+                                                    spawnPos = new Vector2(cursor.X, groundY - (tornadoHeight / 2f));
+                                                    foundGround = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (foundGround)
+                                        {
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                spawnPos,
+                                                Vector2.Zero,
+                                                projType,
+                                                50, // 50 de daño
+                                                15f, // Alto knockback vertical
+                                                Player.whoAmI
+                                            );
+                                            
+                                            SoundEngine.PlaySound(SoundID.Item66, spawnPos);
+                                        }
+                                    }
+                                    
+                                    // Consumir runas y resetear CDs
+                                    ConsumeRunesForCombo();
+                                    
+                                    // Poner CD del combo elemental
+                                    hipermagoElementalComboCooldown = HipermagoElementalComboCooldown;
+                                }
+                                else if (!HasRuneCombo() && hipermagoAbility2Cooldown <= 0)
+                                {
+                                    // --- NO TIENE RUNAS: Dispara Holy Spear ---
+                                    Vector2 direction = Main.MouseWorld - Player.Center;
+                                    direction.Normalize();
+                                    float speed = 15f;
+                                    int baseDamage = 50;
+                                    float knockback = 4f;
+                                    
+                                    int projType = ModContent.ProjectileType<Content.Projectiles.HipermagoHolySpear>();
+                                    
+                                    Projectile.NewProjectile(
+                                        Player.GetSource_FromThis(),
+                                        Player.Center,
+                                        direction * speed,
+                                        projType,
+                                        baseDamage,
+                                        knockback,
+                                        Player.whoAmI
+                                    );
+                                    
+                                    // Efectos
+                                    SoundEngine.PlaySound(SoundID.Item117, Player.Center); // Sonido sagrado
+                                    for (int i = 0; i < 20; i++)
+                                    {
+                                        Vector2 dustVel = direction.RotatedByRandom(0.3f) * Main.rand.NextFloat(2f, 5f);
+                                        Dust.NewDust(Player.Center, 0, 0, DustID.GoldFlame, 
+                                            dustVel.X, dustVel.Y, 100, default, 1.5f);
+                                    }
+                                    
+                                    // Cooldown de 20 segundos
+                                    hipermagoAbility2Cooldown = HipermagoAbility2BaseCooldown;
                                 }
                             }
                             break;
@@ -994,6 +1485,17 @@ namespace WakfuMod.jugador
                 mensaje = "¡You are Xelor!\nMaster of Time.\nSkill 1 (V): Teleport to cursor (6s CD).\nSkill 2 (X): Time Suspension (10s) / Rewind (20s CD).\nSlows enemies and projectiles, then rewinds them!";
                 colorMensaje = Color.Purple;
             }
+            else if (ks.IsKeyDown(Keys.F7))
+            {
+                claseSeleccionada = WakfuClase.Hipermago;
+                mensaje = "¡You are Huppermage/Hipermago!\nMaster of Elemental Magic.\nSkill 1 (V): Double Light Ball - Fire 2 energy balls. If both hit, +25 armor-piercing damage!\nSkill 2 (X): [Coming Soon]\nAll damage scales with Ranged damage!";
+                colorMensaje = Color.Magenta;
+                accionExtra = () => {
+                    // Dar las 2 armas del Hipermago
+                    Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoFireEarthStaff>(), 1);
+                    Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoAirWaterStaff>(), 1);
+                };
+            }
 
             if (claseSeleccionada != WakfuClase.Ninguna)
             {
@@ -1058,6 +1560,24 @@ namespace WakfuMod.jugador
         // --- ModifyHitNPCWithProj (Aplica Multiplicador de Rabia a Proyectiles) ---
         public override void ModifyHitNPCWithProj(Projectile proj, NPC target, ref NPC.HitModifiers modifiers)
         {
+            // Aplicar bonus de daño crítico si tiene
+            if (critDamageBonus > 0f)
+            {
+                modifiers.CritDamage += critDamageBonus;
+            }
+            
+            // Hipermago: Duplicar el bonus de daño ranged para proyectiles del Hipermago
+            if (claseElegida == WakfuClase.Hipermago && proj.owner == Player.whoAmI && IsHipermagoProjectile(proj))
+            {
+                // Obtener el bonus de daño ranged actual (ej: 1.5f significa +50%)
+                float rangedDamageBonus = Player.GetDamage(DamageClass.Ranged).Additive - 1f;
+                // Aplicar ese mismo bonus adicional (duplicando el efecto)
+                if (rangedDamageBonus > 0f)
+                {
+                    modifiers.SourceDamage *= (1f + rangedDamageBonus);
+                }
+            }
+            
             // Lógica Zurcarák
             if (claseElegida == WakfuClase.Zurcarac && proj.owner == Player.whoAmI)
             {
@@ -1071,6 +1591,52 @@ namespace WakfuMod.jugador
                 // O a FinalDamage:
                 // modifiers.FinalDamage *= GetRageMultiplier();
             }
+        }
+        
+        // Helper para identificar proyectiles del Hipermago
+        private bool IsHipermagoProjectile(Projectile proj)
+        {
+            int type = proj.type;
+            return type == ModContent.ProjectileType<Content.Projectiles.HipermagoLightBall>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoFireExplosion>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoEarthRock>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoTornado>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoIceShard>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoHolySpear>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoMeteor>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoBubble>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoFireTornado>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoDebrisWhirl>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoWindTornado>() ||
+                   type == ModContent.ProjectileType<Content.Projectiles.HipermagoSteamExplosion>();
+        }
+        
+        // --- ModifyHitNPCWithItem (Aplica bonus de críticos a armas cuerpo a cuerpo) ---
+        public override void ModifyHitNPCWithItem(Item item, NPC target, ref NPC.HitModifiers modifiers)
+        {
+            // Aplicar bonus de daño crítico si tiene
+            if (critDamageBonus > 0f)
+            {
+                modifiers.CritDamage += critDamageBonus;
+            }
+            
+            // Hipermago: Duplicar el bonus de daño ranged para armas del Hipermago
+            if (claseElegida == WakfuClase.Hipermago && IsHipermagoWeapon(item))
+            {
+                float rangedDamageBonus = Player.GetDamage(DamageClass.Ranged).Additive - 1f;
+                if (rangedDamageBonus > 0f)
+                {
+                    modifiers.SourceDamage *= (1f + rangedDamageBonus);
+                }
+            }
+        }
+        
+        // Helper para identificar armas del Hipermago
+        private bool IsHipermagoWeapon(Item item)
+        {
+            int type = item.type;
+            return type == ModContent.ItemType<Content.Items.Weapons.HipermagoFireEarthStaff>() ||
+                   type == ModContent.ItemType<Content.Items.Weapons.HipermagoAirWaterStaff>();
         }
 
         // Función helper para aplicar el roll de daño
@@ -1149,6 +1715,104 @@ namespace WakfuMod.jugador
 
             Main.NewText($"Wakfu Balance Mode: {status}{scalingText}", color);
         }
+
+        // --- SINCRONIZACIÓN MULTIJUGADOR ---
+
+        public override void SyncPlayer(int toWho, int fromWho, bool newPlayer)
+        {
+            ModPacket packet = Mod.GetPacket();
+            packet.Write((byte)WakfuMod.MessageType.SyncPlayerWakfuData);
+            packet.Write((byte)Player.whoAmI);
+            
+            // Escribir datos
+            packet.Write((int)claseElegida);
+            
+            // Hipermago
+            packet.Write(hipermagoFireRunes);
+            packet.Write(hipermagoEarthRunes);
+            packet.Write(hipermagoAirRunes);
+            packet.Write(hipermagoWaterRunes);
+            packet.Write(hipermagoFireCooldown);
+            packet.Write(hipermagoEarthCooldown);
+            packet.Write(hipermagoAirCooldown);
+            packet.Write(hipermagoWaterCooldown);
+            packet.Write(hipermagoElementalComboCooldown);
+            
+            // Yopuka
+            packet.Write(rageTicks);
+            
+            // Stats
+            packet.Write(critDamageBonus);
+
+            packet.Send(toWho, fromWho);
+        }
+
+        public void ReceivePlayerSync(System.IO.BinaryReader reader)
+        {
+            claseElegida = (WakfuClase)reader.ReadInt32();
+            
+            // Hipermago
+            hipermagoFireRunes = reader.ReadInt32();
+            hipermagoEarthRunes = reader.ReadInt32();
+            hipermagoAirRunes = reader.ReadInt32();
+            hipermagoWaterRunes = reader.ReadInt32();
+            hipermagoFireCooldown = reader.ReadInt32();
+            hipermagoEarthCooldown = reader.ReadInt32();
+            hipermagoAirCooldown = reader.ReadInt32();
+            hipermagoWaterCooldown = reader.ReadInt32();
+            hipermagoElementalComboCooldown = reader.ReadInt32();
+            
+            // Yopuka
+            rageTicks = reader.ReadInt32();
+            
+            // Stats
+            critDamageBonus = reader.ReadSingle();
+        }
+
+        public override void CopyClientState(ModPlayer targetCopy)
+        {
+            WakfuPlayer clone = (WakfuPlayer)targetCopy;
+            clone.claseElegida = claseElegida;
+            
+            // Hipermago
+            clone.hipermagoFireRunes = hipermagoFireRunes;
+            clone.hipermagoEarthRunes = hipermagoEarthRunes;
+            clone.hipermagoAirRunes = hipermagoAirRunes;
+            clone.hipermagoWaterRunes = hipermagoWaterRunes;
+            clone.hipermagoFireCooldown = hipermagoFireCooldown;
+            clone.hipermagoEarthCooldown = hipermagoEarthCooldown;
+            clone.hipermagoAirCooldown = hipermagoAirCooldown;
+            clone.hipermagoWaterCooldown = hipermagoWaterCooldown;
+            clone.hipermagoElementalComboCooldown = hipermagoElementalComboCooldown;
+            
+            // Yopuka
+            clone.rageTicks = rageTicks;
+            
+            // Stats
+            clone.critDamageBonus = critDamageBonus;
+        }
+
+        public override void SendClientChanges(ModPlayer clientPlayer)
+        {
+            WakfuPlayer clone = (WakfuPlayer)clientPlayer;
+
+            if (clone.claseElegida != claseElegida ||
+                clone.hipermagoFireRunes != hipermagoFireRunes ||
+                clone.hipermagoEarthRunes != hipermagoEarthRunes ||
+                clone.hipermagoAirRunes != hipermagoAirRunes ||
+                clone.hipermagoWaterRunes != hipermagoWaterRunes ||
+                clone.hipermagoFireCooldown != hipermagoFireCooldown ||
+                clone.hipermagoEarthCooldown != hipermagoEarthCooldown ||
+                clone.hipermagoAirCooldown != hipermagoAirCooldown ||
+                clone.hipermagoWaterCooldown != hipermagoWaterCooldown ||
+                clone.hipermagoElementalComboCooldown != hipermagoElementalComboCooldown ||
+                clone.rageTicks != rageTicks ||
+                clone.critDamageBonus != critDamageBonus)
+            {
+                SyncPlayer(toWho: -1, fromWho: Main.myPlayer, newPlayer: false);
+            }
+        }
+
 
         // --- Desconexión ---
         public override void PlayerDisconnect()

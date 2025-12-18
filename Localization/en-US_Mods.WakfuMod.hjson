@@ -45,6 +45,18 @@ Projectiles: {
 	EcaflipTongueLash.DisplayName: Ecaflip Tongue Lash
 	TorossStasisLaser.DisplayName: Toross Stasis Laser
 	TorossHomingProjectile.DisplayName: Toross Homing Projectile
+	HipermagoEarthRock.DisplayName: Hipermago Earth Rock
+	HipermagoFireExplosion.DisplayName: Hipermago Fire Explosion
+	HipermagoHolySpear.DisplayName: Hipermago Holy Spear
+	HipermagoIceShard.DisplayName: Hipermago Ice Shard
+	HipermagoLightBall.DisplayName: Hipermago Light Ball
+	HipermagoTornado.DisplayName: Hipermago Tornado
+	HipermagoMeteor.DisplayName: Hipermago Meteor
+	HipermagoBubble.DisplayName: Hipermago Bubble
+	HipermagoFireTornado.DisplayName: Hipermago Fire Tornado
+	HipermagoDebrisWhirl.DisplayName: Hipermago Debris Whirl
+	HipermagoWindTornado.DisplayName: Hipermago Wind Tornado
+	HipermagoSteamExplosion.DisplayName: Hipermago Steam Explosion
 }
 
 Items: {
@@ -147,6 +159,16 @@ Items: {
 		Tooltip: ""
 		DisplayName: Toross Sword Item
 	}
+
+	HipermagoAirWaterStaff: {
+		DisplayName: Hipermago Air Water Staff
+		Tooltip: ""
+	}
+
+	HipermagoFireEarthStaff: {
+		DisplayName: Hipermago Fire Earth Staff
+		Tooltip: ""
+	}
 }
 
 Buffs: {
@@ -173,6 +195,26 @@ Buffs: {
 	KamasutarMountBuff: {
 		DisplayName: Kamasutar Mount Buff
 		Description: Mods.WakfuMod.Buffs.KamasutarMountBuff.Description
+	}
+
+	HipermagoLightDebuff: {
+		Description: Mods.WakfuMod.Buffs.HipermagoLightDebuff.Description
+		DisplayName: Hipermago Light Debuff
+	}
+
+	BlindedDebuff: {
+		DisplayName: Blinded Debuff
+		Description: Mods.WakfuMod.Buffs.BlindedDebuff.Description
+	}
+
+	AirWaterBuff: {
+		DisplayName: Elemental Surge
+		Description: +40% move speed, +20% attack speed, +15% damage, +10% crit chance, +50% crit damage, +8 life regen
+	}
+
+	EarthWaterBuff: {
+		DisplayName: Earthen Shield
+		Description: +30 defense, knockback immunity, lava immunity, +10% damage reduction, +12 life regen
 	}
 }
 

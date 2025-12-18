@@ -415,8 +415,7 @@ namespace WakfuMod
                 case MessageType.SyncPlayerWakfuData:
                     byte playernumber = reader.ReadByte();
                     WakfuPlayer wakfuPlayer = Main.player[playernumber].GetModPlayer<WakfuPlayer>();
-                    // TODO: Implement ReceivePlayerSync method in WakfuPlayer class
-                    // wakfuPlayer.ReceivePlayerSync(reader);
+                    wakfuPlayer.ReceivePlayerSync(reader);
 
                     if (Main.netMode == NetmodeID.Server)
                     {
