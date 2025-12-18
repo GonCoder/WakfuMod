@@ -16,6 +16,9 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
         public Vector2 xelorRewindPos = Vector2.Zero;
         public Vector2 xelorOriginalVelocity = Vector2.Zero;
 
+        // --- OCRA ARMOR SHRED ---
+        public int ocraDefenseReduction = 0;
+
         public override void ResetEffects(NPC npc)
         {
             // No reseteamos xelorSlowed aquí porque dura varios frames controlado por el jugador

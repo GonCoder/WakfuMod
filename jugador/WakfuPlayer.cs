@@ -17,7 +17,7 @@ using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -66,6 +66,12 @@ namespace WakfuMod.jugador
         public int hipermagoSecondBallTimer = 0; // Timer para la segunda bola
         public bool hipermagoSecondBallPending = false;
         public Vector2 hipermagoSecondBallDirection = Vector2.Zero;
+
+        // --- NUEVO: Variables del Ocra ---
+        public int ocraAbility1Cooldown = 0;
+        public const int OcraAbility1BaseCooldown = 300; // 5 segundos para la Baliza
+        public int ocraAbility2Cooldown = 0;
+        public const int OcraAbility2BaseCooldown = 120; // 2 segundos para la Flecha
         
         // --- Sistema de Runas Elementales ---
         // Las runas se acumulan al atacar con las armas elementales (máximo 2 EN TOTAL)
@@ -149,10 +155,19 @@ namespace WakfuMod.jugador
             
             // Resetear bonus de daño crítico
             critDamageBonus = 0f;
+
+            // --- Resetear stacks de Ocra Precision ---
+            if (!Player.HasBuff(ModContent.BuffType<PrecisionBuff>()))
+            {
+                precisionStacks = 0;
+            }
         }
         
         // Bonus de daño crítico (multiplicador adicional)
         public float critDamageBonus = 0f;
+
+        // Ocra
+        public int precisionStacks = 0;
 
         // Yopuka
         private int rageTicks = 0;
@@ -198,7 +213,7 @@ namespace WakfuMod.jugador
             {
                 if (claseElegida == WakfuClase.Ninguna && !haMostradoMensajeClase && Main.GameUpdateCount > 120)
                 {
-                    Main.NewText("Press F1-F7 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-", Color.OrangeRed);
+                    Main.NewText("Press F1-F8 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-\nF8-Ocra-", Color.OrangeRed);
                     haMostradoMensajeClase = true;
                 }
                 HandleClaseSeleccion(); // Manejar la selección si aún no tiene clase
@@ -221,6 +236,8 @@ namespace WakfuMod.jugador
             if (hipermagoEarthCooldown > 0) hipermagoEarthCooldown--;
             if (hipermagoAirCooldown > 0) hipermagoAirCooldown--;
             if (hipermagoWaterCooldown > 0) hipermagoWaterCooldown--;
+            if (ocraAbility1Cooldown > 0) ocraAbility1Cooldown--;
+            if (ocraAbility2Cooldown > 0) ocraAbility2Cooldown--;
 
             // --- Lógica Xelor Time Suspension ---
             if (xelorTimeSuspensionActive)
@@ -794,14 +811,14 @@ namespace WakfuMod.jugador
                                                 explosionPos,
                                                 Vector2.Zero,
                                                 projType,
-                                                20, // 20 de daño por explosión
-                                                2f,
-                                                Player.whoAmI,
-                                                delay // ai[0] = delay antes de aparecer
+                                                30, 
+                                                4f, 
+                                                Player.whoAmI, 
+                                                delay
                                             );
                                         }
                                         
-                                        SoundEngine.PlaySound(SoundID.Item13, targetPos); // Sonido de vapor
+                                        SoundEngine.PlaySound(SoundID.Item13, targetPos);
                                     }
                                     else if (hipermagoAirRunes >= 1 && hipermagoEarthRunes >= 1)
                                     {
@@ -1012,6 +1029,77 @@ namespace WakfuMod.jugador
                                     // Cooldown de 20 segundos
                                     hipermagoAbility2Cooldown = HipermagoAbility2BaseCooldown;
                                 }
+                            }
+                            break;
+
+                        case WakfuClase.Ocra:
+                            // Habilidad 1 (V): Colocar Baliza
+                            if (WakfuMod.Habilidad1Keybind.JustPressed && ocraAbility1Cooldown <= 0)
+                            {
+                                ocraAbility1Cooldown = OcraAbility1BaseCooldown;
+                                
+                                // Buscar suelo debajo del cursor
+                                Vector2 constrictCursor = Main.MouseWorld;
+                                Vector2 spawnPos = constrictCursor;
+                                
+                                // Lógica simple de encontrar suelo (Raycast hacia abajo)
+                                Point tileCoords = constrictCursor.ToTileCoordinates();
+                                for (int y = 0; y < 20; y++) // Buscar hasta 20 bloques abajo
+                                {
+                                    if (WorldGen.SolidTile(tileCoords.X, tileCoords.Y + y))
+                                    {
+                                        // Place ON TOP of the tile.
+                                        // Tile top Y is (tileCoords.Y + y) * 16.
+                                        // Projectile Center Y should be TileTop - (Height / 2)
+                                        // Height is 86. Half is 43.
+                                        spawnPos = new Vector2(constrictCursor.X, ((tileCoords.Y + y) * 16) - 43); 
+                                        break;
+                                    }
+                                }
+                                
+                                // Spawn Baliza
+                                Projectile.NewProjectile(
+                                    Player.GetSource_FromThis("OcraBeacon"),
+                                    spawnPos,
+                                    Vector2.Zero,
+                                    ModContent.ProjectileType<OcraBeacon>(),
+                                    0, // Sin daño
+                                    0f,
+                                    Player.whoAmI
+                                );
+                            }
+                            
+                            // Habilidad 2 (X): Disparar Flecha Homing
+                            if (WakfuMod.Habilidad2Keybind.Current && ocraAbility2Cooldown <= 0)
+                            {
+                                ocraAbility2Cooldown = OcraAbility2BaseCooldown;
+                                
+                                Vector2 mousePos = Main.MouseWorld;
+                                Vector2 direction = (mousePos - Player.Center).SafeNormalize(Vector2.UnitX);
+                                float speed = 12f;
+                                
+                                int damage = 40;
+                                if (BalanceMode)
+                                {
+                                     damage = (int)(20f * Player.GetDamage(DamageClass.Ranged).Multiplicative);
+                                }
+                                else
+                                {
+                                    // Daño base + escalado
+                                     damage = (int)Player.GetDamage(DamageClass.Ranged).ApplyTo(40);
+                                }
+
+                                Projectile.NewProjectile(
+                                    Player.GetSource_FromThis("OcraArrow"),
+                                    Player.Center,
+                                    direction * speed,
+                                    ModContent.ProjectileType<OcraArrow>(),
+                                    damage,
+                                    5f,
+                                    Player.whoAmI
+                                );
+                                
+                                SoundEngine.PlaySound(SoundID.Item5, Player.Center);
                             }
                             break;
 
@@ -1494,6 +1582,17 @@ namespace WakfuMod.jugador
                     // Dar las 2 armas del Hipermago
                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoFireEarthStaff>(), 1);
                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoAirWaterStaff>(), 1);
+                };
+            }
+            else if (ks.IsKeyDown(Keys.F8))
+            {
+                claseSeleccionada = WakfuClase.Ocra;
+                mensaje = "¡You are Ocra!\nCra Bow sent to your inventory (TBD)\nSkill 1: Place Beacon\nSkill 2: Homing Arrow (Explodes on Beacon)";
+                colorMensaje = Color.Green;
+                accionExtra = () => {
+                     // Start with iron bow just in case, or nothing specific requested yet
+                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.IronBow, 1);
+                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.WoodenArrow, 100);
                 };
             }
 

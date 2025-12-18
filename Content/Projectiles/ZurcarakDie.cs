@@ -66,12 +66,14 @@ namespace WakfuMod.Content.Projectiles
 
         public override void OnSpawn(IEntitySource source)
         {
-            // Solo el jugador que lanza el dado decide el resultado
-            if (Projectile.owner == Main.myPlayer)
-            {
-                FinalResult = Main.rand.Next(1, 7); // 1 a 6
-                Projectile.netUpdate = true; // Sincronizar este resultado inmediatamente
-            }
+            // --- FIX MULTIJUGADOR: Leer el resultado desde ai[0] ---
+            // El dueño ya ha decidido el número al spawnearlo y lo ha pasado en ai[0].
+            // Esto asegura que todos vean el mismo número.
+            FinalResult = (int)Projectile.ai[0]; 
+            
+            // Si por alguna razón es 0 (ej: spawned con cheats), fallback a RNG local (pero desincronizado)
+            if (FinalResult <= 0) FinalResult = Main.rand.Next(1, 7);
+            
             // Sonido de "lanzar" el dado
             SoundEngine.PlaySound(SoundID.Item35, Projectile.position);
         }

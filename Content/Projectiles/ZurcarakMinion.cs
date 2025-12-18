@@ -54,6 +54,9 @@ namespace WakfuMod.Content.Projectiles
         private int idleTimer = 0; // Contador para los 5 segundos de idle base
         private const int IdleBaseDuration = 140; // 5 segundos * 60 ticks/segundo
         private bool playingLickAnimation = false; // Flag para la animación de lamerse
+        
+        // --- Variable para Grace Period ---
+        private int spawnGracePeriod = 20; // 20 ticks de gracia inicial
 
         public override void SetStaticDefaults()
         {
@@ -98,9 +101,24 @@ namespace WakfuMod.Content.Projectiles
             }
 
             // Comprobar si el JUGADOR todavía QUIERE que el minion esté activo (tiene el buff)
-            if (owner.HasBuff(ModContent.BuffType<ZurcarakMinionBuff>()))
+            // --- FIX CRÍTICO: Grace Period para Sincronización ---
+            // Al spawnearse desde el servidor, el buff puede tardar unos ticks en llegar al cliente.
+            // Damos 20 ticks (1/3 segundo) de "gracia" donde no muere si falta el buff.
+            bool hasBuff = owner.HasBuff(ModContent.BuffType<ZurcarakMinionBuff>());
+            if (hasBuff || Projectile.timeLeft > 18000) // Hack: Usar timeLeft alto inicial o timer local
             {
                 Projectile.timeLeft = 2; // Mantener vivo al proyectil
+            }
+            // Pero espera, timeLeft ya se gestiona... usemos un contador local mejor.
+            
+            if (hasBuff)
+            {
+                 Projectile.timeLeft = 2;
+            }
+            else if (spawnGracePeriod > 0)
+            {
+                spawnGracePeriod--;
+                Projectile.timeLeft = 2; // Mantener vivo durante gracia
             }
             else
             {

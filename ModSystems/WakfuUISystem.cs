@@ -142,6 +142,14 @@ namespace WakfuMod.ModSystems
             Player player = Main.LocalPlayer;
             WakfuPlayer wakfuPlayer = player.GetModPlayer<WakfuPlayer>();
             
+            // --- NUEVO: Check para deshabilitar visualmente ---
+            if (wakfuPlayer.claseElegida == WakfuClase.Xelor || wakfuPlayer.claseElegida == WakfuClase.Hipermago)
+            {
+                 toggleButton.BackgroundColor = Color.Gray;
+                 toggleText.SetText("Disabled");
+                 return; 
+            }
+            
             if (wakfuPlayer.BalanceMode)
             {
                 toggleButton.BackgroundColor = Color.Green;

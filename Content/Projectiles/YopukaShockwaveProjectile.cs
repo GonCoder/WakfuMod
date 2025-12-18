@@ -48,37 +48,46 @@ namespace WakfuMod.Content.Projectiles
             Projectile.localNPCHitCooldown = HitCooldown;
         }
 
+        // Flag para inicialización tardía (seguridad MP)
+        private bool initialized = false;
+
         public override void OnSpawn(IEntitySource source)
         {
-            // --- Quitado hitTargets = new HashSet<int>(); ---
-
-            rageLevel = (int)Projectile.ai[0]; // Obtener rabia de ai[0]
-
-            // --- Tus Cálculos Originales ---
-            maxDistance = 350f + 150f * rageLevel;
-            expansionSpeed = 4f + rageLevel * 1.2f;
-            Projectile.height = 40 + rageLevel * 35; // Ajustar altura de la hitbox
-
-            // --- Tu Efecto de Dust Original ---
-            if (Main.netMode != NetmodeID.Server) // Optimización: No crear dust en servidor
-            {
-                for (int d = 0; d < 5; d++)
-                {
-                    Vector2 dustVelocity = new Vector2(Main.rand.NextFloat(-3f, 3f), Main.rand.NextFloat(-3f, 3f));
-                    int dust = Dust.NewDust(Projectile.Center, 0, 0, DustID.Ambient_DarkBrown, dustVelocity.X, dustVelocity.Y, 150, Color.OrangeRed, 2f);
-                    Main.dust[dust].noGravity = true;
-                }
-            }
-
-            // --- Establecer velocidad inicial basada en ai[1] (Dirección) ---
-            // Es importante que la velocidad se establezca correctamente al spawnear
-            int direction = (int)Projectile.ai[1]; // Obtener dirección de ai[1]
-            Projectile.velocity.X = expansionSpeed * direction; // Establecer velocidad X inicial
-            Projectile.velocity.Y = 0f; // Asegurarse de que no tiene velocidad Y inicial
+             // Dejamos OnSpawn vacío o solo para efectos muy básicos que no dependan de ai[] crítico
+             // La lógica se mueve a AI()
         }
 
         public override void AI()
         {
+            // --- FIX MULTIJUGADOR: Inicialización en el primer frame ---
+            if (!initialized)
+            {
+                rageLevel = (int)Projectile.ai[0]; // Obtener rabia de ai[0]
+                int direction = (int)Projectile.ai[1]; // Obtener dirección de ai[1]
+
+                // Cálculos de stats
+                maxDistance = 350f + 150f * rageLevel;
+                expansionSpeed = 4f + rageLevel * 1.2f;
+                Projectile.height = 40 + rageLevel * 35; // Ajustar altura de la hitbox
+                
+                // Velocidad Inicial
+                Projectile.velocity.X = expansionSpeed * direction; 
+                Projectile.velocity.Y = 0f;
+
+                // Efectos de Dust (Solo cliente)
+                if (Main.netMode != NetmodeID.Server) 
+                {
+                    for (int d = 0; d < 5; d++)
+                    {
+                        Vector2 dustVelocity = new Vector2(Main.rand.NextFloat(-3f, 3f), Main.rand.NextFloat(-3f, 3f));
+                        int dust = Dust.NewDust(Projectile.Center, 0, 0, DustID.Ambient_DarkBrown, dustVelocity.X, dustVelocity.Y, 150, Color.OrangeRed, 2f);
+                        Main.dust[dust].noGravity = true;
+                    }
+                }
+                
+                initialized = true;
+            }
+
             // --- Quitado if (hitTargets == null) ... ---
 
             // --- Rotación (Opcional, si tu sprite lo necesita) ---

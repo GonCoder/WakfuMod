@@ -57,6 +57,9 @@ Projectiles: {
 	HipermagoDebrisWhirl.DisplayName: Hipermago Debris Whirl
 	HipermagoWindTornado.DisplayName: Hipermago Wind Tornado
 	HipermagoSteamExplosion.DisplayName: Hipermago Steam Explosion
+	OcraArrow.DisplayName: Ocra Arrow
+	OcraBeacon.DisplayName: Ocra Beacon
+	OcraExplosion.DisplayName: Ocra Explosion
 }
 
 Items: {
@@ -215,6 +218,11 @@ Buffs: {
 	EarthWaterBuff: {
 		DisplayName: Earthen Shield
 		Description: +30 defense, knockback immunity, lava immunity, +10% damage reduction, +12 life regen
+	}
+
+	PrecisionBuff: {
+		DisplayName: Precision Buff
+		Description: Mods.WakfuMod.Buffs.PrecisionBuff.Description
 	}
 }
 
