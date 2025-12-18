@@ -3,6 +3,8 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using Terraria.Audio;
+using Terraria.GameContent;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace WakfuMod.Content.Projectiles
 {
@@ -13,7 +15,7 @@ namespace WakfuMod.Content.Projectiles
         private const int TICKS_PER_FRAME = 8;
         private const int TOTAL_DURATION = TOTAL_FRAMES * TICKS_PER_FRAME; // 16 ticks
         
-        private const int BASE_SIZE = 64; // Tamaño base de hitbox
+        private const int BASE_SIZE = 80; // Tamaño base de hitbox
 
         public override void SetStaticDefaults()
         {
@@ -111,6 +113,31 @@ namespace WakfuMod.Content.Projectiles
                 int dust = Dust.NewDust(target.position, target.width, target.height, DustID.Torch, 0, 0, 100, default, 1.2f);
                 Main.dust[dust].noGravity = true;
             }
+        }
+
+        public override bool PreDraw(ref Color lightColor)
+        {
+            Texture2D texture = TextureAssets.Projectile[Projectile.type].Value;
+            Rectangle frame = texture.Frame(1, TOTAL_FRAMES, 0, Projectile.frame);
+            
+            // Fix: Force origin to be the center of the actual 64x64 sprite content
+            // ignoring any extra empty space in the texture file
+            Vector2 origin = new Vector2(BASE_SIZE / 2f, BASE_SIZE / 2f);
+            
+            Color drawColor = Projectile.GetAlpha(lightColor);
+
+            Main.EntitySpriteDraw(
+                texture,
+                Projectile.Center - Main.screenPosition,
+                frame,
+                drawColor,
+                Projectile.rotation,
+                origin,
+                Projectile.scale,
+                SpriteEffects.None,
+                0
+            );
+            return false; 
         }
 
         public override Color? GetAlpha(Color lightColor)

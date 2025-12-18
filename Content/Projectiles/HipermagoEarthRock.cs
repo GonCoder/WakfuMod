@@ -10,24 +10,21 @@ namespace WakfuMod.Content.Projectiles
     {
         public override void SetDefaults()
         {
-            Projectile.width = 24;
-            Projectile.height = 24;
-            Projectile.friendly = true;
-            Projectile.hostile = false;
-            Projectile.DamageType = DamageClass.Ranged;
-            Projectile.penetrate = 1; // Muere al impactar
-            Projectile.timeLeft = 300; // 5 segundos máximo
-            Projectile.tileCollide = true;
-            Projectile.ignoreWater = true;
-            Projectile.alpha = 0;
-            
             // Usar sprite de vanilla (boulder pequeño)
             Projectile.CloneDefaults(ProjectileID.BoulderStaffOfEarth);
+            
+            // Custom adjustments after clone
+            Projectile.width = 48;
+            Projectile.height = 48;
             Projectile.aiStyle = -1; // Pero con AI personalizada
             Projectile.friendly = true;
             Projectile.hostile = false;
             Projectile.DamageType = DamageClass.Ranged;
             Projectile.penetrate = 1;
+            Projectile.timeLeft = 300;
+            Projectile.tileCollide = true;
+            Projectile.ignoreWater = true;
+            Projectile.alpha = 0;
         }
 
         public override void AI()
