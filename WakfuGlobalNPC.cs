@@ -1,9 +1,12 @@
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using WakfuMod.Content.Items.Pets;   // Namespace de tu item de mascota
 using WakfuMod.Content.Items.Mounts; // Namespace de tu item de montura
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Terraria.GameContent;
 
 namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
 {
@@ -26,7 +29,6 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
         public override void ResetEffects(NPC npc)
         {
             // No reseteamos xelorSlowed aquí porque dura varios frames controlado por el jugador
-            uginakMarked = false; // Reset cada frame, se reactiva si sigue marcado
         }
 
         public override void PostAI(NPC npc)
@@ -49,6 +51,25 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
                 {
                     Dust.NewDust(npc.position, npc.width, npc.height, DustID.Torch, 0, 0, 100, Color.Orange, 1.2f);
                 }
+            }
+        }
+
+        public override void PostDraw(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
+        {
+            if (uginakMarked)
+            {
+                // Dibujar una X roja sobre el NPC
+                Texture2D texture = TextureAssets.MagicPixel.Value;
+                Rectangle rect = npc.getRect();
+                Vector2 center = npc.Center - screenPos;
+                
+                float size = Math.Max(npc.width, npc.height) * 0.5f;
+                float thickness = 4f;
+                
+                // Línea 1 \
+                spriteBatch.Draw(texture, center, new Rectangle(0, 0, 1, 1), Color.Red, MathHelper.PiOver4, new Vector2(0.5f, 0.5f), new Vector2(size * 2, thickness), SpriteEffects.None, 0);
+                // Línea 2 /
+                spriteBatch.Draw(texture, center, new Rectangle(0, 0, 1, 1), Color.Red, -MathHelper.PiOver4, new Vector2(0.5f, 0.5f), new Vector2(size * 2, thickness), SpriteEffects.None, 0);
             }
         }
 

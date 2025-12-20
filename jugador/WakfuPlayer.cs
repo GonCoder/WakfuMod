@@ -1345,6 +1345,11 @@ namespace WakfuMod.jugador
                                 
                                 if (closestNPC != -1)
                                 {
+                                    // Desmarcar anterior
+                                    if (uginakMarkedNPC != -1 && uginakMarkedNPC < Main.maxNPCs) {
+                                        Main.npc[uginakMarkedNPC].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>().uginakMarked = false;
+                                    }
+
                                     // Marcar enemigo
                                     uginakMarkedNPC = closestNPC;
                                     var globalNPC = Main.npc[closestNPC].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
@@ -1372,7 +1377,7 @@ namespace WakfuMod.jugador
                             if (uginakMarkedNPC >= 0 && uginakMarkedNPC < Main.maxNPCs)
                             {
                                 NPC markedNPC = Main.npc[uginakMarkedNPC];
-                                if (markedNPC.active)
+                                if (markedNPC.active && markedNPC.life > 0)
                                 {
                                     var globalNPC = markedNPC.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
                                     globalNPC.uginakMarked = true;
@@ -1380,31 +1385,52 @@ namespace WakfuMod.jugador
                                 }
                                 else
                                 {
+                                    if (markedNPC.active) markedNPC.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>().uginakMarked = false;
                                     uginakMarkedNPC = -1; // El enemigo murió o se desactivó
                                 }
                             }
                             
-                            // Habilidad 2 (X): Invocar al Wuau (perrito curativo)
-                            if (WakfuMod.Habilidad2Keybind.JustPressed && uginakAbility2Cooldown <= 0)
+                            // Habilidad 2 (X): Invocar al Wuau / Ataque Comandado / Salto
+                            if (WakfuMod.Habilidad2Keybind.JustPressed)
                             {
-                                // Toggle: Si ya tiene el buff, quitarlo. Si no, añadirlo.
                                 bool hasWuau = Player.HasBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>());
                                 
-                                if (hasWuau)
+                                if (!hasWuau)
                                 {
-                                    // Desconvocar
-                                    Player.ClearBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>());
-                                    Main.NewText("Wuau dismissed.", Color.Gray);
+                                    // Convocar si no existe
+                                    if (uginakAbility2Cooldown <= 0)
+                                    {
+                                        Player.AddBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>(), 2);
+                                        SoundEngine.PlaySound(SoundID.Item44, Player.Center);
+                                        uginakAbility2Cooldown = 300; // 5s CD para invocar
+                                    }
                                 }
-                                else
+                                else if (uginakAbility2Cooldown <= 0)
                                 {
-                                    // Convocar
-                                    Player.AddBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>(), 2); // Buff permanente (se mantiene solo)
-                                    Main.NewText("Wuau summoned!", Color.LightGreen);
-                                    SoundEngine.PlaySound(SoundID.Item44, Player.Center);
-                                    
-                                    // Cooldown solo al invocar
-                                    uginakAbility2Cooldown = UginakAbility2BaseCooldown;
+                                    // Si ya existe, decidir entre Ataque o Salto
+                                    if (uginakMarkedNPC != -1)
+                                    {
+                                        // ATAQUE COMANDADO
+                                        Projectile wuau = FindPlayerMinion(Player, ModContent.ProjectileType<UginakWuauMinion>());
+                                        if (wuau != null)
+                                        {
+                                            wuau.ai[1] = 1f; // Trigger de ataque
+                                            wuau.netUpdate = true;
+                                            uginakAbility2Cooldown = 900; // 15s CD
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // SALTO (LEAP)
+                                        Projectile.NewProjectile(
+                                            Player.GetSource_FromThis("UginakLeap"),
+                                            Player.Center, Vector2.Zero,
+                                            ModContent.ProjectileType<UginakLeapAbility>(),
+                                            0, 0f, Player.whoAmI,
+                                            ai1: (float)Player.direction
+                                        );
+                                        uginakAbility2Cooldown = 900; // 15s CD
+                                    }
                                 }
                             }
                             break;
@@ -1586,7 +1612,12 @@ namespace WakfuMod.jugador
             {
                 // Alternar entre preset 1 y 2
                 currentPreset = (currentPreset == 1) ? 2 : 1;
-                Main.NewText($"Preset {currentPreset} selected! Press F1-F8 to choose your class.", Color.Yellow);
+                
+                string classList = currentPreset == 1 ? 
+                    "Selatrop (F1), Yopuka (F2), Steamer (F3), Tymador (F4), Zurcarac (F5), Xelor (F6), Hipermago (F7), Ocra (F8)" : 
+                    "Uginak (F1), [Coming Soon] (F2-F8)";
+
+                Main.NewText($"Preset {currentPreset} selected: {classList}", Color.Yellow);
                 return; // Salir para que el mensaje sea visible antes de seleccionar
             }
 

@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -21,7 +22,7 @@ namespace WakfuMod.Content.Projectiles
         {
             Projectile.width = 34;
             Projectile.height = 26;
-            Projectile.tileCollide = false; // No colisiona con bloques
+            Projectile.tileCollide = true; // Colisiona con bloques
             Projectile.friendly = false;
             Projectile.minion = true;
             Projectile.minionSlots = 0f; // No usa slots de minion
@@ -52,13 +53,13 @@ namespace WakfuMod.Content.Projectiles
                 return;
             }
 
-            // --- Lógica de seguimiento tipo pet ---
+            // --- Lógica de seguimiento tipo pet (Caminando) ---
             Vector2 targetPos = owner.Center;
-            targetPos.X -= 40f * owner.direction; // Detrás del jugador
-            targetPos.Y -= 20f; // Un poco arriba
-
-            float speed = 8f;
             float distance = Vector2.Distance(Projectile.Center, targetPos);
+
+            // Gravedad
+            if (Projectile.velocity.Y < 12f)
+                Projectile.velocity.Y += 0.4f;
 
             if (distance > 2000f)
             {
@@ -66,17 +67,76 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.Center = owner.Center;
                 Projectile.velocity = Vector2.Zero;
             }
-            else if (distance > 100f)
+            else if (distance > 60f)
             {
-                // Moverse hacia el jugador
-                Vector2 direction = targetPos - Projectile.Center;
-                direction.Normalize();
-                Projectile.velocity = direction * speed;
+                // Moverse horizontalmente hacia el jugador
+                float moveSpeed = 6f;
+                if (Projectile.Center.X < targetPos.X)
+                    Projectile.velocity.X = moveSpeed;
+                else
+                    Projectile.velocity.X = -moveSpeed;
+
+                // Salto si hay un bloque enfrente o si el jugador está arriba
+                Vector2 nextPos = Projectile.Center + new Vector2(Projectile.velocity.X * 2, 0);
+                Point tileCoord = nextPos.ToTileCoordinates();
+                if (WorldGen.SolidTile(tileCoord.X, tileCoord.Y) || (targetPos.Y < Projectile.Center.Y - 100 && distance < 300))
+                {
+                    if (Projectile.velocity.Y == 0 || (Projectile.velocity.Y > 0 && Projectile.velocity.Y < 0.5f)) // Si está en el suelo o cayendo muy lento
+                    {
+                        Projectile.velocity.Y = -9f; // Salto
+                        currentState = AnimationState.Jump;
+                    }
+                }
+            }
+            // --- Lógica de Ataque Comandado ---
+            if (Projectile.ai[1] == 1f)
+            {
+                if (wakfuPlayer.uginakMarkedNPC != -1)
+                {
+                    NPC target = Main.npc[wakfuPlayer.uginakMarkedNPC];
+                    if (target.active && target.life > 0)
+                    {
+                        // Teletransporte y Daño
+                        Projectile.Center = target.Center;
+                        Projectile.velocity = Vector2.Zero;
+                        
+                        // Aplicar daño (50 base)
+                        int damage = (int)owner.GetTotalDamage(DamageClass.Summon).ApplyTo(50);
+                        owner.ApplyDamageToNPC(target, damage, 5f, owner.direction, false);
+
+                        // Efectos visuales de ataque
+                        if (Main.netMode != NetmodeID.Server)
+                        {
+                            SoundEngine.PlaySound(SoundID.Item1, Projectile.Center);
+                            for (int i = 0; i < 20; i++)
+                            {
+                                Dust.NewDust(target.position, target.width, target.height, DustID.Blood);
+                            }
+                        }
+                    }
+                }
+                Projectile.ai[1] = 0f; // Reset trigger
+            }
+
+            // Frenar cuando está cerca
+            if (distance <= 60f)
+            {
+                Projectile.velocity.X *= 0.8f;
+                if (Math.Abs(Projectile.velocity.X) < 0.1f) Projectile.velocity.X = 0;
+            }
+
+            // Si está en el aire, forzar estado de salto
+            if (Math.Abs(Projectile.velocity.Y) > 0.5f)
+            {
+                currentState = AnimationState.Jump;
+            }
+            else if (Math.Abs(Projectile.velocity.X) > 0.1f)
+            {
+                currentState = AnimationState.Walking;
             }
             else
             {
-                // Ralentizar cuando está cerca
-                Projectile.velocity *= 0.9f;
+                currentState = AnimationState.Idle;
             }
 
             // Orientación
@@ -86,18 +146,11 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.spriteDirection = 1;
 
             // --- Sistema de animación mejorado ---
-            speed = Projectile.velocity.Length(); // Reutilizamos la variable speed de línea 60
-            
-            // Determinar estado
-            if (speed > 1f)
+            // El estado ya se determinó en la lógica de movimiento arriba
+            if (currentState == AnimationState.Walking)
             {
-                currentState = AnimationState.Walking;
-                idleVariantTimer = 0; // Reset timer de variantes
+                idleVariantTimer = 0;
                 currentIdleVariant = 0;
-            }
-            else
-            {
-                currentState = AnimationState.Idle;
             }
 
             // Animación según estado
@@ -219,7 +272,7 @@ namespace WakfuMod.Content.Projectiles
 
                 // Efectos
                 SoundEngine.PlaySound(SoundID.Item2, Projectile.Center);
-                Main.NewText($"Wuau healed {healAmount} HP!", Color.LightGreen);
+                // Main.NewText($"Wuau healed {healAmount} HP!", Color.LightGreen);
 
                 // Partículas de curación
                 for (int i = 0; i < 10; i++)
@@ -277,7 +330,7 @@ namespace WakfuMod.Content.Projectiles
             // Aquí solo usamos partículas para simular el efecto
         }
 
-        public override void Kill(int timeLeft)
+        public override void OnKill(int timeLeft)
         {
             // Efectos al desparecer
             for (int i = 0; i < 5; i++)

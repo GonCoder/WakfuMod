@@ -61,6 +61,7 @@ Projectiles: {
 	OcraBeacon.DisplayName: Ocra Beacon
 	OcraExplosion.DisplayName: Ocra Explosion
 	UginakWuauMinion.DisplayName: Uginak Wuau Minion
+	UginakLeapAbility.DisplayName: Uginak Leap Ability
 }
 
 Items: {
