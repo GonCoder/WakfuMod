@@ -18,10 +18,15 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
 
         // --- OCRA ARMOR SHRED ---
         public int ocraDefenseReduction = 0;
+        
+        // --- UGINAK HUNTER'S MARK ---
+        public bool uginakMarked = false;
+        public int uginakMarkedByPlayer = -1; // WhoAmI del jugador que marcó
 
         public override void ResetEffects(NPC npc)
         {
             // No reseteamos xelorSlowed aquí porque dura varios frames controlado por el jugador
+            uginakMarked = false; // Reset cada frame, se reactiva si sigue marcado
         }
 
         public override void PostAI(NPC npc)
@@ -34,6 +39,15 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
                 if (Main.rand.NextBool(5))
                 {
                     Dust.NewDust(npc.position, npc.width, npc.height, DustID.Electric, 0, 0, 150, Color.Purple, 0.5f);
+                }
+            }
+            
+            // Efecto visual para marca del cazador
+            if (uginakMarked)
+            {
+                if (Main.rand.NextBool(3))
+                {
+                    Dust.NewDust(npc.position, npc.width, npc.height, DustID.Torch, 0, 0, 100, Color.Orange, 1.2f);
                 }
             }
         }

@@ -60,6 +60,7 @@ Projectiles: {
 	OcraArrow.DisplayName: Ocra Arrow
 	OcraBeacon.DisplayName: Ocra Beacon
 	OcraExplosion.DisplayName: Ocra Explosion
+	UginakWuauMinion.DisplayName: Uginak Wuau Minion
 }
 
 Items: {
@@ -223,6 +224,16 @@ Buffs: {
 	PrecisionBuff: {
 		DisplayName: Precision Buff
 		Description: Mods.WakfuMod.Buffs.PrecisionBuff.Description
+	}
+
+	UginakWuauBuff: {
+		DisplayName: Uginak Wuau Buff
+		Description: Mods.WakfuMod.Buffs.UginakWuauBuff.Description
+	}
+
+	UginakLifeTankBuff: {
+		Description: Mods.WakfuMod.Buffs.UginakLifeTankBuff.Description
+		DisplayName: Uginak Life Tank Buff
 	}
 }
 

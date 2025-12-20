@@ -17,7 +17,7 @@ using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra, Uginak }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -31,6 +31,9 @@ namespace WakfuMod.jugador
 
         // --- NUEVO: Balance Mode ---
         public bool BalanceMode = false;
+        
+        // --- NUEVO: Sistema de Presets ---
+        private int currentPreset = 1; // 1 o 2
 
         // --- NUEVO: Variables del Xelor ---
         public int xelorTeleportCooldown = 0;
@@ -44,9 +47,9 @@ namespace WakfuMod.jugador
 
         // --- NUEVO: Variables del Hipermago ---
         public int hipermagoAbility1Cooldown = 0;
-        public const int HipermagoAbility1BaseCooldown = 120; // 2 segundos (testing)
+        public const int HipermagoAbility1BaseCooldown = 900; // 15 segundos
         public int hipermagoAbility2Cooldown = 0;
-        public const int HipermagoAbility2BaseCooldown = 120; // 2 segundos (testing)
+        public const int HipermagoAbility2BaseCooldown = 1200; // 20 segundos
         
         // CD para combo elemental (independiente de la spear)
         public int hipermagoElementalComboCooldown = 0;
@@ -72,6 +75,17 @@ namespace WakfuMod.jugador
         public const int OcraAbility1BaseCooldown = 300; // 5 segundos para la Baliza
         public int ocraAbility2Cooldown = 0;
         public const int OcraAbility2BaseCooldown = 120; // 2 segundos para la Flecha
+        
+        // --- NUEVO: Variables del Uginak ---
+        public int uginakAbility1Cooldown = 0;
+        public const int UginakAbility1BaseCooldown = 360; // 6 segundos
+        public int uginakAbility2Cooldown = 0;
+        public const int UginakAbility2BaseCooldown = 600; // 10 segundos (placeholder)
+        
+        // Sistema de Marca del Cazador
+        public int uginakMarkedNPC = -1; // WhoAmI del NPC marcado (-1 = ninguno)
+        public int uginakExtraLife = 0; // Vida extra del tanque de vida
+        public int uginakMaxExtraLife = 0; // Máximo de vida extra actual
         
         // --- Sistema de Runas Elementales ---
         // Las runas se acumulan al atacar con las armas elementales (máximo 2 EN TOTAL)
@@ -238,6 +252,8 @@ namespace WakfuMod.jugador
             if (hipermagoWaterCooldown > 0) hipermagoWaterCooldown--;
             if (ocraAbility1Cooldown > 0) ocraAbility1Cooldown--;
             if (ocraAbility2Cooldown > 0) ocraAbility2Cooldown--;
+            if (uginakAbility1Cooldown > 0) uginakAbility1Cooldown--;
+            if (uginakAbility2Cooldown > 0) uginakAbility2Cooldown--;
 
             // --- Lógica Xelor Time Suspension ---
             if (xelorTimeSuspensionActive)
@@ -1303,6 +1319,96 @@ namespace WakfuMod.jugador
                             break;
 
 
+                        case WakfuClase.Uginak:
+                            // Habilidad 1 (V): Marca del Cazador
+                            if (WakfuMod.Habilidad1Keybind.JustPressed && uginakAbility1Cooldown <= 0)
+                            {
+                                Vector2 cursorPos = Main.MouseWorld;
+                                float searchRadius = 800f; // 800 píxeles de búsqueda
+                                int closestNPC = -1;
+                                float closestDist = float.MaxValue;
+                                
+                                // Buscar enemigo más cercano al cursor
+                                for (int i = 0; i < Main.maxNPCs; i++)
+                                {
+                                    NPC npc = Main.npc[i];
+                                    if (npc.active && !npc.friendly && npc.lifeMax > 5 && !npc.dontTakeDamage)
+                                    {
+                                        float dist = Vector2.Distance(npc.Center, cursorPos);
+                                        if (dist < searchRadius && dist < closestDist)
+                                        {
+                                            closestDist = dist;
+                                            closestNPC = i;
+                                        }
+                                    }
+                                }
+                                
+                                if (closestNPC != -1)
+                                {
+                                    // Marcar enemigo
+                                    uginakMarkedNPC = closestNPC;
+                                    var globalNPC = Main.npc[closestNPC].GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                                    globalNPC.uginakMarked = true;
+                                    globalNPC.uginakMarkedByPlayer = Player.whoAmI;
+                                    
+                                    // Efectos visuales y sonido
+                                    SoundEngine.PlaySound(SoundID.Item37, Main.npc[closestNPC].Center);
+                                    for (int i = 0; i < 20; i++)
+                                    {
+                                        Dust.NewDust(Main.npc[closestNPC].position, Main.npc[closestNPC].width, Main.npc[closestNPC].height,
+                                            DustID.Torch, 0, 0, 100, Color.Orange, 1.5f);
+                                    }
+                                    
+                                    Main.NewText("Target Marked!", Color.Orange);
+                                    uginakAbility1Cooldown = UginakAbility1BaseCooldown;
+                                }
+                                else
+                                {
+                                    Main.NewText("No target found near cursor!", Color.Gray);
+                                }
+                            }
+                            
+                            // Mantener marca activa si el enemigo sigue vivo
+                            if (uginakMarkedNPC >= 0 && uginakMarkedNPC < Main.maxNPCs)
+                            {
+                                NPC markedNPC = Main.npc[uginakMarkedNPC];
+                                if (markedNPC.active)
+                                {
+                                    var globalNPC = markedNPC.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                                    globalNPC.uginakMarked = true;
+                                    globalNPC.uginakMarkedByPlayer = Player.whoAmI;
+                                }
+                                else
+                                {
+                                    uginakMarkedNPC = -1; // El enemigo murió o se desactivó
+                                }
+                            }
+                            
+                            // Habilidad 2 (X): Invocar al Wuau (perrito curativo)
+                            if (WakfuMod.Habilidad2Keybind.JustPressed && uginakAbility2Cooldown <= 0)
+                            {
+                                // Toggle: Si ya tiene el buff, quitarlo. Si no, añadirlo.
+                                bool hasWuau = Player.HasBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>());
+                                
+                                if (hasWuau)
+                                {
+                                    // Desconvocar
+                                    Player.ClearBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>());
+                                    Main.NewText("Wuau dismissed.", Color.Gray);
+                                }
+                                else
+                                {
+                                    // Convocar
+                                    Player.AddBuff(ModContent.BuffType<Content.Buffs.UginakWuauBuff>(), 2); // Buff permanente (se mantiene solo)
+                                    Main.NewText("Wuau summoned!", Color.LightGreen);
+                                    SoundEngine.PlaySound(SoundID.Item44, Player.Center);
+                                    
+                                    // Cooldown solo al invocar
+                                    uginakAbility2Cooldown = UginakAbility2BaseCooldown;
+                                }
+                            }
+                            break;
+
                         case WakfuClase.Tymador:
                             if (WakfuMod.Habilidad1Keybind.JustPressed) TymadorAbilityHandler.TryPlaceBomb(Player);
                             if (WakfuMod.Habilidad2Keybind.JustPressed)
@@ -1475,6 +1581,15 @@ namespace WakfuMod.jugador
             var ks = Main.keyState;
             var oldKs = Main.oldKeyState; // Necesitamos el estado anterior
 
+            // --- MANEJAR F9: CAMBIAR PRESET (solo si NO tiene clase aún) ---
+            if (claseElegida == WakfuClase.Ninguna && ks.IsKeyDown(Keys.F9) && oldKs.IsKeyUp(Keys.F9))
+            {
+                // Alternar entre preset 1 y 2
+                currentPreset = (currentPreset == 1) ? 2 : 1;
+                Main.NewText($"Preset {currentPreset} selected! Press F1-F8 to choose your class.", Color.Yellow);
+                return; // Salir para que el mensaje sea visible antes de seleccionar
+            }
+
             // --- Comprobar si YA TIENE CLASE ---
             if (claseElegida != WakfuClase.Ninguna)
             {
@@ -1504,7 +1619,9 @@ namespace WakfuMod.jugador
 
             if (ks.IsKeyDown(Keys.F1))
             {
-                claseSeleccionada = WakfuClase.Selatrop;
+                if (currentPreset == 1)
+                {
+                    claseSeleccionada = WakfuClase.Selatrop;
                 mensaje = "¡You are Selatrop!\nWakmeha weapon and Yugo Skin sent to your inventory\nSkill 1: Place a Portal at your cursor\nSkill 2: Detonate Portals\nYou and your projectiles can pass throu portals";
                 colorMensaje = Color.Teal;
                 accionExtra = () =>
@@ -1514,9 +1631,22 @@ namespace WakfuMod.jugador
                     Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSelatrop"), ModContent.ItemType<Content.Items.Armor.Vanity.Yugo.YugoBody>()); // Asegúrate del nombre de clase correcto
                     Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSelatrop"), ModContent.ItemType<Content.Items.Armor.Vanity.Yugo.YugoLegs>());
                 };
+                }
+                else // preset 2
+                {
+                    claseSeleccionada = WakfuClase.Uginak;
+                    mensaje = "¡You are Uginak!\\nMaster of Hounds and Hunting.\\nSkill 1 (V): Summon/Command War Hound (6s CD)\\nSkill 2 (X): Hunter's Mark - Mark enemy for bonus damage (10s CD)";
+                    colorMensaje = Color.Brown;
+                    accionExtra = () => {
+                        Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.WoodenBow, 1);
+                        Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.WoodenArrow, 200);
+                    };
+                }
             }
             else if (ks.IsKeyDown(Keys.F2))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Yopuka;
                 mensaje = "¡You are Yopuka!\nIop Rage Sword and Tristepin Skin sent to your inventory\nSkill 1: God's Punch falls from the sky\nSkill 2: Jump + Stomp";
                 colorMensaje = Color.Red;
@@ -1527,17 +1657,31 @@ namespace WakfuMod.jugador
                     Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSelatrop"), ModContent.ItemType<Content.Items.Armor.Vanity.Pinpan.PinpanBody>()); // Asegúrate del nombre de clase correcto
                     Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSelatrop"), ModContent.ItemType<Content.Items.Armor.Vanity.Pinpan.PinpanLegs>());
                 };
+                }
+                else
+                {
+                    Main.NewText("Class slot F2 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
             else if (ks.IsKeyDown(Keys.F3))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Steamer;
                 mensaje = "¡You are Steamer!\nStasis Gun sent to your inventory\nSkill 1: Place a Stasis Turret, if already placed: Concentrated Laser\nSkill 2: Detonate Turret for replacement";
                 colorMensaje = Color.SkyBlue;
                 accionExtra = () => Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSteamer"), ModContent.ItemType<SteamerPistol>());
+                }
+                else
+                {
+                    Main.NewText("Class slot F3 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
             else // --- Lógica específica para F4 ---
     if (ks.IsKeyDown(Keys.F4)) // Detectar JustPressed para F4
             {
+                if (currentPreset == 1)
+                {
                 // --- CASO 1: Aún no tiene clase ---
                 if (claseElegida == WakfuClase.Ninguna)
                 {
@@ -1554,10 +1698,17 @@ namespace WakfuMod.jugador
                 }
 
                 // Si no es Ninguna ni Tymador, no debería llegar aquí por la condición inicial del método
+                }
+                else
+                {
+                    Main.NewText("Class slot F4 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
 
             else if (ks.IsKeyDown(Keys.F5))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Zurcarac;
                 mensaje = "¡You are Ecaflip/Zurcarák!\nLucky Dice weapon sent to your inventory.\nSkill 1: Summon Ecaflip's Kitten / Order Kitten to attack.\nSkill 2: Roll the Ecaflip Die for a random effect!\nPassive: All your damage is randomized (-20% to +25%).";
                 colorMensaje = Color.Gold;
@@ -1566,15 +1717,29 @@ namespace WakfuMod.jugador
                 {
                     // Player.QuickSpawnItem(Player.GetSource_Misc("ClaseZurcarac"), ModContent.ItemType<ZurcarakStarterWeapon>()); // Reemplaza con tu arma
                 };
+                }
+                else
+                {
+                    Main.NewText("Class slot F5 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
             else if (ks.IsKeyDown(Keys.F6))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Xelor;
                 mensaje = "¡You are Xelor!\nMaster of Time.\nSkill 1 (V): Teleport to cursor (6s CD).\nSkill 2 (X): Time Suspension (10s) / Rewind (20s CD).\nSlows enemies and projectiles, then rewinds them!";
                 colorMensaje = Color.Purple;
+                }
+                else
+                {
+                    Main.NewText("Class slot F6 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
             else if (ks.IsKeyDown(Keys.F7))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Hipermago;
                 mensaje = "¡You are Huppermage/Hipermago!\nMaster of Elemental Magic.\nSkill 1 (V): Double Light Ball - Fire 2 energy balls. If both hit, +25 armor-piercing damage!\nSkill 2 (X): [Coming Soon]\nAll damage scales with Ranged damage!";
                 colorMensaje = Color.Magenta;
@@ -1583,9 +1748,16 @@ namespace WakfuMod.jugador
                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoFireEarthStaff>(), 1);
                     Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ModContent.ItemType<Content.Items.Weapons.HipermagoAirWaterStaff>(), 1);
                 };
+                }
+                else
+                {
+                    Main.NewText("Class slot F7 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
             else if (ks.IsKeyDown(Keys.F8))
             {
+                if (currentPreset == 1)
+                {
                 claseSeleccionada = WakfuClase.Ocra;
                 mensaje = "¡You are Ocra!\nCra Bow sent to your inventory (TBD)\nSkill 1: Place Beacon\nSkill 2: Homing Arrow (Explodes on Beacon)";
                 colorMensaje = Color.Green;
@@ -1594,6 +1766,11 @@ namespace WakfuMod.jugador
                      Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.IronBow, 1);
                      Player.QuickSpawnItem(Player.GetSource_GiftOrReward(), ItemID.WoodenArrow, 100);
                 };
+                }
+                else
+                {
+                    Main.NewText("Class slot F8 (Preset 2) - Coming Soon!", Color.Gray);
+                }
             }
 
             if (claseSeleccionada != WakfuClase.Ninguna)
@@ -1645,8 +1822,98 @@ namespace WakfuMod.jugador
             rageCooldown = 60;  // Pone en cooldown (1 segundo)
                                 // TODO: Sincronizar rageTicks si es necesario
         }
+        
+        // --- NUEVO: OnHitNPC para detectar muerte de enemigo marcado (Uginak) ---
+        public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
+        {
+            // Uginak: Detectar muerte de enemigo marcado
+            if (claseElegida == WakfuClase.Uginak && target.life <= 0)
+            {
+                var globalNPC = target.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                if (globalNPC.uginakMarked && globalNPC.uginakMarkedByPlayer == Player.whoAmI)
+                {
+                    // El Uginak mató al enemigo marcado!
+                    int maxLifeBonus = (int)(target.lifeMax * 0.5f); // 50% de vida máxima del enemigo
+                    uginakExtraLife += maxLifeBonus;
+                    uginakMaxExtraLife += maxLifeBonus;
+                    
+                    // Aplicar buff de 2 minutos (7200 ticks)
+                    Player.AddBuff(ModContent.BuffType<Content.Buffs.UginakLifeTankBuff>(), 7200);
+                    
+                    // Feedback visual
+                    Main.NewText($"+{maxLifeBonus} Life Tank!", Color.LightGreen);
+                    SoundEngine.PlaySound(SoundID.Item4, Player.Center);
+                    for (int i = 0; i < 30; i++)
+                    {
+                        Dust.NewDust(Player.position, Player.width, Player.height, DustID.LifeDrain, 0, -2f, 100, Color.Green, 1.5f);
+                    }
+                    
+                    // Desmarcar
+                    uginakMarkedNPC = -1;
+                }
+            }
+        }
+
+        // --- ModifyHurt: Absorción de daño con vida extra (Uginak) ---
+        public override void ModifyHurt(ref Player.HurtModifiers modifiers)
+        {
+            // Uginak: Si tiene vida extra, absorber daño primero del tanque
+            if (claseElegida == WakfuClase.Uginak && uginakExtraLife > 0)
+            {
+                // Usaremos ModifyHurt.FinalDamage para interceptar DESPUÉS de todos los cálculos
+                // Pero necesitamos saber cuánto daño se va a recibir...
+                // En realidad, lo mejor es usar PostHurt para restar la vida después
+                // Por ahora marcamos que tiene vida extra disponible (se usa en PostHurt)
+            }
+        }
+        
+        // --- PostHurt: Absorber daño del tanque de vida después del golpe ---
+        public override void PostHurt(Player.HurtInfo info)
+        {
+            // Uginak: Restaurar vida si tenía tanque disponible
+            if (claseElegida == WakfuClase.Uginak && uginakExtraLife > 0)
+            {
+                int damageReceived = info.Damage;
+                
+                if (uginakExtraLife >= damageReceived)
+                {
+                    // El tanque absorbe todo el daño
+                    uginakExtraLife -= damageReceived;
+                    Player.statLife += damageReceived; // Devolver la vida que se quitó
+                    Player.statLife = Math.Min(Player.statLife, Player.statLifeMax2); // No exceder máximo
+                    
+                    // Efecto visual
+                    for (int i = 0; i < 5; i++)
+                    {
+                        Dust.NewDust(Player.position, Player.width, Player.height, DustID.GreenTorch, 0, -1f, 100, Color.Green, 0.8f);
+                    }
+                }
+                else
+                {
+                    // El tanque absorbe parte del daño
+                    int absorbed = uginakExtraLife;
+                    Player.statLife += absorbed; // Devolver lo que absorbió el tanque
+                    uginakExtraLife = 0;
+                    
+                    // Efecto visual
+                    for (int i = 0; i < 3; i++)
+                    {
+                        Dust.NewDust(Player.position, Player.width, Player.height, DustID.GreenTorch, 0, -1f, 100, Color.Green, 0.8f);
+                    }
+                }
+                
+                // Si se agotó la vida extra, remover buff
+                if (uginakExtraLife <= 0)
+                {
+                    uginakExtraLife = 0;
+                    uginakMaxExtraLife = 0;
+                    Player.ClearBuff(ModContent.BuffType<Content.Buffs.UginakLifeTankBuff>());
+                }
+            }
+        }
 
         // --- Hook OnHitNPCWithProj (Llama al método de proyectil) ---
+
         public override void OnHitNPCWithProj(Projectile proj, NPC target, NPC.HitInfo hit, int damageDone)
         {
             // Llama a la función específica para proyectiles
@@ -1663,6 +1930,16 @@ namespace WakfuMod.jugador
             if (critDamageBonus > 0f)
             {
                 modifiers.CritDamage += critDamageBonus;
+            }
+            
+            // Uginak: +25% daño a enemigos marcados
+            if (claseElegida == WakfuClase.Uginak)
+            {
+                var globalNPC = target.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                if (globalNPC.uginakMarked && globalNPC.uginakMarkedByPlayer == Player.whoAmI)
+                {
+                    modifiers.SourceDamage *= 1.25f; // +25% daño
+                }
             }
             
             // Hipermago: Duplicar el bonus de daño ranged para proyectiles del Hipermago
@@ -1717,6 +1994,16 @@ namespace WakfuMod.jugador
             if (critDamageBonus > 0f)
             {
                 modifiers.CritDamage += critDamageBonus;
+            }
+            
+            // Uginak: +25% daño a enemigos marcados
+            if (claseElegida == WakfuClase.Uginak)
+            {
+                var globalNPC = target.GetGlobalNPC<Common.GlobalNPCs.WakfuGlobalNPC>();
+                if (globalNPC.uginakMarked && globalNPC.uginakMarkedByPlayer == Player.whoAmI)
+                {
+                    modifiers.SourceDamage *= 1.25f; // +25% daño
+                }
             }
             
             // Hipermago: Duplicar el bonus de daño ranged para armas del Hipermago
