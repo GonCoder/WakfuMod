@@ -62,6 +62,9 @@ Projectiles: {
 	OcraExplosion.DisplayName: Ocra Explosion
 	UginakWuauMinion.DisplayName: Uginak Wuau Minion
 	UginakLeapAbility.DisplayName: Uginak Leap Ability
+	AniripsaMark.DisplayName: Aniripsa Mark
+	AniripsaExplosion.DisplayName: Aniripsa Explosion
+	RufusMinion.DisplayName: Rufus Minion
 }
 
 Items: {
@@ -174,6 +177,11 @@ Items: {
 		DisplayName: Hipermago Fire Earth Staff
 		Tooltip: ""
 	}
+
+	Rufus: {
+		DisplayName: Rufus
+		Tooltip: ""
+	}
 }
 
 Buffs: {
@@ -235,6 +243,11 @@ Buffs: {
 	UginakLifeTankBuff: {
 		Description: Mods.WakfuMod.Buffs.UginakLifeTankBuff.Description
 		DisplayName: Uginak Life Tank Buff
+	}
+
+	RufusBuff: {
+		DisplayName: Rufus Buff
+		Description: Mods.WakfuMod.Buffs.RufusBuff.Description
 	}
 }
 

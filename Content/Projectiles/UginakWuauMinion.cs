@@ -43,6 +43,9 @@ namespace WakfuMod.Content.Projectiles
 
         public override void AI()
         {
+            // Ajuste visual constante
+            Projectile.gfxOffY = -6f;
+
             Player owner = Main.player[Projectile.owner];
             
             // Verificar que el jugador sea Uginak
@@ -53,7 +56,7 @@ namespace WakfuMod.Content.Projectiles
                 return;
             }
 
-            // --- Lógica de seguimiento tipo pet (Caminando) ---
+            // --- Lógica de seguimiento tipo pet mejorada ---
             Vector2 targetPos = owner.Center;
             float distance = Vector2.Distance(Projectile.Center, targetPos);
 
@@ -67,27 +70,49 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.Center = owner.Center;
                 Projectile.velocity = Vector2.Zero;
             }
-            else if (distance > 60f)
+            else 
             {
-                // Moverse horizontalmente hacia el jugador
-                float moveSpeed = 6f;
-                if (Projectile.Center.X < targetPos.X)
-                    Projectile.velocity.X = moveSpeed;
-                else
-                    Projectile.velocity.X = -moveSpeed;
-
-                // Salto si hay un bloque enfrente o si el jugador está arriba
-                Vector2 nextPos = Projectile.Center + new Vector2(Projectile.velocity.X * 2, 0);
-                Point tileCoord = nextPos.ToTileCoordinates();
-                if (WorldGen.SolidTile(tileCoord.X, tileCoord.Y) || (targetPos.Y < Projectile.Center.Y - 100 && distance < 300))
+                // Movimiento horizontal con inercia
+                float speed = 6f;
+                float inertia = 20f;
+                
+                // Zona muerta para evitar jittering
+                if (distance > 60f)
                 {
-                    if (Projectile.velocity.Y == 0 || (Projectile.velocity.Y > 0 && Projectile.velocity.Y < 0.5f)) // Si está en el suelo o cayendo muy lento
+                    // Determinar dirección deseada
+                    int direction = 0;
+                    if (Projectile.Center.X < targetPos.X - 40) direction = 1;
+                    else if (Projectile.Center.X > targetPos.X + 40) direction = -1;
+                    
+                    if (direction != 0)
                     {
-                        Projectile.velocity.Y = -9f; // Salto
-                        currentState = AnimationState.Jump;
+                        Projectile.velocity.X = (Projectile.velocity.X * (inertia - 1) + direction * speed) / inertia;
+                    }
+                    else
+                    {
+                         Projectile.velocity.X *= 0.9f;
+                    }
+
+                    // Salto automático ante obstáculos
+                    Vector2 nextPos = Projectile.Center + new Vector2(Projectile.velocity.X * 2, 0);
+                    Point tileCoord = nextPos.ToTileCoordinates();
+                    if (direction != 0 && (WorldGen.SolidTile(tileCoord.X, tileCoord.Y) || (targetPos.Y < Projectile.Center.Y - 100 && distance < 300)))
+                    {
+                        if (Projectile.velocity.Y == 0 || (Projectile.velocity.Y > 0 && Projectile.velocity.Y < 0.5f))
+                        {
+                            Projectile.velocity.Y = -9f; 
+                            currentState = AnimationState.Jump;
+                        }
                     }
                 }
+                else
+                {
+                    // Frenado suave al estar cerca
+                    Projectile.velocity.X *= 0.9f;
+                    if (Math.Abs(Projectile.velocity.X) < 0.1f) Projectile.velocity.X = 0;
+                }
             }
+            
             // --- Lógica de Ataque Comandado ---
             if (Projectile.ai[1] == 1f)
             {
@@ -118,13 +143,6 @@ namespace WakfuMod.Content.Projectiles
                 Projectile.ai[1] = 0f; // Reset trigger
             }
 
-            // Frenar cuando está cerca
-            if (distance <= 60f)
-            {
-                Projectile.velocity.X *= 0.8f;
-                if (Math.Abs(Projectile.velocity.X) < 0.1f) Projectile.velocity.X = 0;
-            }
-
             // Si está en el aire, forzar estado de salto
             if (Math.Abs(Projectile.velocity.Y) > 0.5f)
             {
@@ -140,9 +158,9 @@ namespace WakfuMod.Content.Projectiles
             }
 
             // Orientación
-            if (Projectile.velocity.X > 0.5f)
+            if (Projectile.velocity.X > 0.1f)
                 Projectile.spriteDirection = -1;
-            else if (Projectile.velocity.X < -0.5f)
+            else if (Projectile.velocity.X < -0.1f)
                 Projectile.spriteDirection = 1;
 
             // --- Sistema de animación mejorado ---
@@ -270,10 +288,9 @@ namespace WakfuMod.Content.Projectiles
                 if (owner.statLife > owner.statLifeMax2)
                     owner.statLife = owner.statLifeMax2;
 
-                // Efectos
-                SoundEngine.PlaySound(SoundID.Item2, Projectile.Center);
-                // Main.NewText($"Wuau healed {healAmount} HP!", Color.LightGreen);
-
+                // Efectos - SONIDO ELIMINADO A PETICIÓN DEL USUARIO
+                // SoundEngine.PlaySound(SoundID.Item2, Projectile.Center);
+                
                 // Partículas de curación
                 for (int i = 0; i < 10; i++)
                 {
@@ -305,6 +322,10 @@ namespace WakfuMod.Content.Projectiles
                 // Dibujar laser rojo (línea roja con partículas)
                 DrawLaserTongue(start, end);
             }
+            
+            // Añadir corrección visual adicional si es necesario
+            // Main.spriteBatch.Draw(...) aquí si el offset de SetDefaults no fuera suficiente,
+            // pero drawOriginOffsetY debería funcionar.
 
             return true; // Dibujar sprite normal del perrito
         }

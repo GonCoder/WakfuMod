@@ -17,7 +17,7 @@ using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra, Uginak }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra, Uginak, Aniripsa }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -137,6 +137,11 @@ namespace WakfuMod.jugador
         public const int ZurcarakAbility2BaseCooldown = 3600; //1200 20 segundos (ejemplo, ajustar)
         public bool IsRollingDie = false; // Flag para ocultar jugador durante la habilidad 2
 
+        // --- NUEVO: Variables del Aniripsa ---
+        public int aniripsaAbility1Cooldown = 0;
+        public const int AniripsaAbility1BaseCooldown = 60; // 1 segundo (cooldown de casteo, efecto persistente)
+        public int aniripsaAbility2Cooldown = 0;
+
         // --- Métodos para el Arma ---
         public void ResetYopukaAbilityCooldowns()
         {
@@ -227,7 +232,7 @@ namespace WakfuMod.jugador
             {
                 if (claseElegida == WakfuClase.Ninguna && !haMostradoMensajeClase && Main.GameUpdateCount > 120)
                 {
-                    Main.NewText("Press F1-F8 to choose your class.\nF1-Selatrop-\nF2-Yopuka-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-\nF8-Ocra-", Color.OrangeRed);
+                    Main.NewText("Press F1-F8 to choose your class. (Press F9 to switch PRESETS)\nF1-Selatrop-\nF2-Yopuka/Aniripsa-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-\nF8-Ocra-", Color.OrangeRed);
                     haMostradoMensajeClase = true;
                 }
                 HandleClaseSeleccion(); // Manejar la selección si aún no tiene clase
@@ -254,6 +259,8 @@ namespace WakfuMod.jugador
             if (ocraAbility2Cooldown > 0) ocraAbility2Cooldown--;
             if (uginakAbility1Cooldown > 0) uginakAbility1Cooldown--;
             if (uginakAbility2Cooldown > 0) uginakAbility2Cooldown--;
+            if (aniripsaAbility1Cooldown > 0) aniripsaAbility1Cooldown--;
+            if (aniripsaAbility2Cooldown > 0) aniripsaAbility2Cooldown--;
 
             // --- Lógica Xelor Time Suspension ---
             if (xelorTimeSuspensionActive)
@@ -1539,6 +1546,114 @@ namespace WakfuMod.jugador
                                         SoundEngine.PlaySound(SoundID.Item35, Player.position); // Sonido de "lanzar"
                                     }
                                     break; // Fin case Zurcarac
+
+                                case WakfuClase.Aniripsa:
+
+                                    // Habilidad 1 (V): Marca Curativa / Maldita
+                                    if (WakfuMod.Habilidad1Keybind.JustPressed && aniripsaAbility1Cooldown <= 0)
+                                    {
+                                        int targetID = -1;
+                                        int targetType = -1; // 0 = Player, 1 = NPC
+                                        
+                                        // Buscar target bajo el mouse (Prioridad: Player > NPC)
+                                        Vector2 mousePos = Main.MouseWorld;
+                                        float checkRadius = 40f; 
+
+                                        // 1. Chequear Jugadores (incluído uno mismo)
+                                        for (int i = 0; i < Main.maxPlayers; i++)
+                                        {
+                                            Player p = Main.player[i];
+                                            if (p.active && !p.dead && p.getRect().Intersects(Utils.CenteredRectangle(mousePos, new Vector2(20, 20))))
+                                            {
+                                                targetID = i;
+                                                targetType = 0;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // 2. Si no hay jugador, Chequear NPCs
+                                        if (targetID == -1)
+                                        {
+                                            for (int i = 0; i < Main.maxNPCs; i++)
+                                            {
+                                                NPC n = Main.npc[i];
+                                                if (n.active && n.life > 0 && n.getRect().Intersects(Utils.CenteredRectangle(mousePos, new Vector2(20, 20))))
+                                                {
+                                                    targetID = i;
+                                                    targetType = 1;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (targetID != -1)
+                                        {
+                                            // Eliminar marks existentes de este Aniripsa
+                                            for (int i = 0; i < Main.maxProjectiles; i++)
+                                            {
+                                                Projectile p = Main.projectile[i];
+                                                if (p.active && p.owner == Player.whoAmI && p.type == ModContent.ProjectileType<Content.Projectiles.AniripsaMark>())
+                                                {
+                                                    p.Kill();
+                                                }
+                                            }
+                                            
+                                            // Crear nueva marca
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                mousePos,
+                                                Vector2.Zero,
+                                                ModContent.ProjectileType<Content.Projectiles.AniripsaMark>(),
+                                                0,
+                                                0,
+                                                Player.whoAmI,
+                                                targetID, // ai[0]
+                                                targetType // ai[1]
+                                            );
+                                            
+                                            aniripsaAbility1Cooldown = AniripsaAbility1BaseCooldown;
+                                            SoundEngine.PlaySound(SoundID.Item29, mousePos); // Sonido mágico suave
+                                        }
+                                        else
+                                        {
+                                            Main.NewText("Not target near cursor!", Color.Red);
+                                        }
+                                    }
+                                    
+                                    // Habilidad 2 (X): Explosión Reconstituyente
+                                    // 20 Daño/Cura base + Scaling normal de magia?
+                                    // User said: "Escala con el bono de magic damage y de entrada tiene 20 de efecto" -> Standard scaling implied.
+                                    if (WakfuMod.Habilidad2Keybind.JustPressed && aniripsaAbility1Cooldown <= 0) // Share cooldown or separate? Usually separate.
+                                    
+                                    {
+                                         
+                                        if (aniripsaAbility2Cooldown <= 0)
+                                        {
+                                            Vector2 mousePos = Main.MouseWorld;
+                                            
+                                            // Spawn Explosion
+                                            // Damage calculation: 20 * MagicMultiplier
+                                            int baseDamage = 20;
+                                            
+                                            
+                                            // Use ai[0] for Scale? User didn't ask for size scaling, but Hipermago has it. Default 1f.
+                                            Projectile.NewProjectile(
+                                                Player.GetSource_FromThis(),
+                                                mousePos,
+                                                Vector2.Zero,
+                                                ModContent.ProjectileType<Content.Projectiles.AniripsaExplosion>(),
+                                                0, // Damage handled in AI
+                                                0, // Knockback
+                                                Player.whoAmI,
+                                                6.0f // Scale (6x default)
+                                            );
+                                            
+                                            aniripsaAbility2Cooldown = 600; // 10 seconds
+                                        }
+                                    }
+
+                                    break;
+
                             } // Fin del switch
                     }
                 } // --- Comprobar si la espada Yopuka está siendo usada con clic derecho ---
@@ -1615,7 +1730,7 @@ namespace WakfuMod.jugador
                 
                 string classList = currentPreset == 1 ? 
                     "Selatrop (F1), Yopuka (F2), Steamer (F3), Tymador (F4), Zurcarac (F5), Xelor (F6), Hipermago (F7), Ocra (F8)" : 
-                    "Uginak (F1), [Coming Soon] (F2-F8)";
+                    "Uginak (F1), Aniripsa (F2), [Coming Soon] (F3-F8)";
 
                 Main.NewText($"Preset {currentPreset} selected: {classList}", Color.Yellow);
                 return; // Salir para que el mensaje sea visible antes de seleccionar
@@ -1691,7 +1806,15 @@ namespace WakfuMod.jugador
                 }
                 else
                 {
-                    Main.NewText("Class slot F2 (Preset 2) - Coming Soon!", Color.Gray);
+                    // Preset 2: Aniripsa
+                    claseSeleccionada = WakfuClase.Aniripsa;
+                    mensaje = "¡You are Aniripsa!\nRufus weapon and Fairy Wings sent to your inventory\nSkill 1 (V): Healing/Cursed Mark (target cursor Heal ally / Dmg enemy)\nSkill 2 (X): Explosion (Heal and DMG enemies)";
+                    colorMensaje = Color.Pink;
+                    accionExtra = () =>
+                    {
+                        Player.QuickSpawnItem(Player.GetSource_Misc("ClaseAniripsa"), ModContent.ItemType<Content.Items.Weapons.Rufus>());
+                        Player.QuickSpawnItem(Player.GetSource_Misc("ClaseAniripsa"), ItemID.FairyWings);
+                    };
                 }
             }
             else if (ks.IsKeyDown(Keys.F3))
