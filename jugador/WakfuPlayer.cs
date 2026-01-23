@@ -17,7 +17,7 @@ using WakfuMod.Content.Tiles; // Para GoalTileRed y Blue
 
 namespace WakfuMod.jugador
 {
-    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra, Uginak, Aniripsa }
+    public enum WakfuClase { Ninguna, Selatrop, Yopuka, Steamer, Tymador, Zurcarac, Xelor, Hipermago, Ocra, Uginak, Aniripsa, Sram, Sacrogrito, Feca }
 
     public class WakfuPlayer : ModPlayer
     {
@@ -34,6 +34,31 @@ namespace WakfuMod.jugador
         
         // --- NUEVO: Sistema de Presets ---
         private int currentPreset = 1; // 1 o 2
+
+        // --- NUEVO: Variables del Sacrogrito ---
+        public int sacrogritoAbility1Cooldown = 0;
+        public const int SacrogritoAbility1BaseCooldown = 180; // 3 segundos
+        public int sacrogritoAbility2Cooldown = 0;
+        public const int SacrogritoAbility2BaseCooldown = 600; // 10 segundos
+        public int sacrierExtraMaxLife = 0;
+
+        // --- NUEVO: Variables del Feca ---
+        public int fecaAbility1Cooldown = 0;
+        public const int FecaAbility1BaseCooldown = 180; // 3 segundos
+        public int fecaAbility2Cooldown = 0;
+        public const int FecaAbility2BaseCooldown = 7200; // 2 minutos (120 * 60)
+        public int fecaShieldHP = 0;
+        public int fecaShieldMaxHP = 0; // For UI or Limits
+        public int fecaShieldDuration = 0; // Timer in ticks
+        public int fecaLastShieldTarget = -1; // WhoAmI of the last shielded player (Only relevant for the Feca caster)
+
+        // --- NUEVO: Variables del Sram ---
+        public int sramInvisibilityCooldown = 0;
+        public const int SramInvisibilityBaseCooldown = 1200; // 20 segundos
+        public bool sramInvisibilityActive = false;
+        public bool sramFirstAttackMultiplier = false;
+        public int sramAbility1Cooldown = 0;
+        public const int SramAbility1BaseCooldown = 300; // 5 segundos
 
         // --- NUEVO: Variables del Xelor ---
         public int xelorTeleportCooldown = 0;
@@ -168,6 +193,24 @@ namespace WakfuMod.jugador
             // HidePlayerForKick = false;
             IsRollingDie = false; // <-- Resetear flag del dado
 
+            // --- Feca Shield Timer Logic ---
+            if (fecaShieldHP > 0)
+            {
+                if (fecaShieldDuration > 0)
+                {
+                    fecaShieldDuration--;
+                }
+                else
+                {
+                    // Time's up!
+                    fecaShieldHP = 0;
+                    fecaShieldMaxHP = 0;
+                    // TODO: Could send a sync packet here, but if duration is synced (it isn't yet, but starts at same value), 
+                    // eventually it will expire locally.
+                    // For precision in MP, the source of truth is spread out, but if duration is deterministic, it's fine.
+                }
+            }
+
             // --- Resetear estado del minion ---
             // El buff se encargará de mantenerlo activo si existe
             zurcarakMinionActive = false;
@@ -179,6 +222,13 @@ namespace WakfuMod.jugador
             if (!Player.HasBuff(ModContent.BuffType<PrecisionBuff>()))
             {
                 precisionStacks = 0;
+            }
+
+            // --- Sram Invisibility Effects ---
+            if (sramInvisibilityActive)
+            {
+                Player.aggro -= 10000; // Reduce aggro significantly
+                Player.opacityForAnimation = 0.3f; // Make player transparent (0 is invisible, 1 is opaque)
             }
         }
         
@@ -232,7 +282,7 @@ namespace WakfuMod.jugador
             {
                 if (claseElegida == WakfuClase.Ninguna && !haMostradoMensajeClase && Main.GameUpdateCount > 120)
                 {
-                    Main.NewText("Press F1-F8 to choose your class. (Press F9 to switch PRESETS)\nF1-Selatrop-\nF2-Yopuka/Aniripsa-\nF3-Steamer-\nF4-Rogue-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-\nF8-Ocra-", Color.OrangeRed);
+                    Main.NewText("Press F1-F8 to choose your class. (Press F9 to switch PRESETS)\nF1-Selatrop-\nF2-Yopuka/Aniripsa-\nF3-Steamer-\nF4-Rogue/Sacrier-\nF5-Zurcarac-\nF6-Xelor-\nF7-Hipermago-\nF8-Ocra-", Color.OrangeRed);
                     haMostradoMensajeClase = true;
                 }
                 HandleClaseSeleccion(); // Manejar la selección si aún no tiene clase
@@ -242,6 +292,8 @@ namespace WakfuMod.jugador
             if (espadaCooldown > 0) espadaCooldown--;
             if (steamerTorretaCooldown > 0) steamerTorretaCooldown--;
             if (steamerGranadaCooldown > 0) steamerGranadaCooldown--;
+            if (sramInvisibilityCooldown > 0) sramInvisibilityCooldown--;
+            if (sramAbility1Cooldown > 0) sramAbility1Cooldown--;
             if (rageCooldown > 0) rageCooldown--;
             if (zurcarakAbility1Cooldown > 0) zurcarakAbility1Cooldown--;
             if (zurcarakAbility2Cooldown > 0) zurcarakAbility2Cooldown--;
@@ -261,6 +313,10 @@ namespace WakfuMod.jugador
             if (uginakAbility2Cooldown > 0) uginakAbility2Cooldown--;
             if (aniripsaAbility1Cooldown > 0) aniripsaAbility1Cooldown--;
             if (aniripsaAbility2Cooldown > 0) aniripsaAbility2Cooldown--;
+            if (sacrogritoAbility1Cooldown > 0) sacrogritoAbility1Cooldown--;
+            if (sacrogritoAbility2Cooldown > 0) sacrogritoAbility2Cooldown--;
+            if (fecaAbility1Cooldown > 0) fecaAbility1Cooldown--;
+            if (fecaAbility2Cooldown > 0) fecaAbility2Cooldown--;
 
             // --- Lógica Xelor Time Suspension ---
             if (xelorTimeSuspensionActive)
@@ -1654,6 +1710,359 @@ namespace WakfuMod.jugador
 
                                     break;
 
+                                case WakfuClase.Sram:
+                                    // Habilidad 1 (V): Shadow Step
+                                    if (WakfuMod.Habilidad1Keybind.JustPressed && sramAbility1Cooldown <= 0)
+                                    {
+                                        // Find closest NPC to cursor
+                                        NPC closestNPC = null;
+                                        float minDistance = 600f; // Max range for teleport
+                                        Vector2 mousePos = Main.MouseWorld;
+
+                                        for (int i = 0; i < Main.maxNPCs; i++)
+                                        {
+                                            NPC npc = Main.npc[i];
+                                            if (npc.active && !npc.friendly && npc.life > 0 && !npc.dontTakeDamage)
+                                            {
+                                                float distance = Vector2.Distance(mousePos, npc.Center);
+                                                if (distance < minDistance)
+                                                {
+                                                    minDistance = distance;
+                                                    closestNPC = npc;
+                                                }
+                                            }
+                                        }
+
+                                        if (closestNPC != null)
+                                        {
+                                            // Teleport behind NPC
+                                            int direction = closestNPC.direction;
+                                            if (direction == 0) direction = 1; 
+                                            
+                                            // Calculate initial teleport position (Behind NPC)
+                                            // Align Player Bottom with NPC Bottom to start
+                                            Vector2 teleportPos = new Vector2(
+                                                closestNPC.Center.X - (direction * 50) - (Player.width / 2),
+                                                closestNPC.Bottom.Y - Player.height
+                                            );
+
+                                            // --- Collision Detection & Ground Snapping ---
+                                            // 1. If inside blocks, move UP until free
+                                            bool stuck = true;
+                                            for (int i = 0; i < 30; i++) // Try moving up 30 tiles max
+                                            {
+                                                if (!Collision.SolidCollision(teleportPos, Player.width, Player.height))
+                                                {
+                                                    stuck = false;
+                                                    break;
+                                                }
+                                                teleportPos.Y -= 16f;
+                                            }
+
+                                            // 2. If floating (and not stuck), try to snap to ground BELOW
+                                            if (!stuck)
+                                            {
+                                                // Check if there is ground within 10 tiles below
+                                                for (int i = 0; i < 10; i++)
+                                                {
+                                                    Vector2 checkPos = teleportPos + new Vector2(0, 16f);
+                                                    if (Collision.SolidCollision(checkPos, Player.width, Player.height))
+                                                    {
+                                                        // Found ground! Stay at current teleportPos (which is just above ground)
+                                                        break;
+                                                    }
+                                                    // If no ground yet, move down to check next tile
+                                                    // But only update teleportPos if we confirm it's valid (not solid)
+                                                    // Actually, we want to move teleportPos DOWN if it's free.
+                                                    if (!Collision.SolidCollision(checkPos, Player.width, Player.height))
+                                                    {
+                                                        teleportPos.Y += 16f;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Teleport Player
+                                            Player.Teleport(teleportPos, 1, 0);
+                                            Player.direction = direction; // Face the enemy
+                                            
+                                            // Calculate Damage
+                                            int baseDamage = 50;
+                                            float meleeMult = Player.GetDamage(DamageClass.Melee).Additive;
+                                            // Extra damage: +20 for every 5% melee damage bonus
+                                            // Bonus is (meleeMult - 1). e.g. 1.10 - 1 = 0.10 (10%)
+                                            float damageBonus = meleeMult - 1f;
+                                            if (damageBonus < 0) damageBonus = 0;
+                                            
+                                            int extraDamageChunks = (int)(damageBonus / 0.05f);
+                                            int extraDamage = extraDamageChunks * 20;
+                                            
+                                            int totalDamage = (int)(baseDamage * meleeMult) + extraDamage;
+                                            
+                                            // Apply Damage
+                                            Player.ApplyDamageToNPC(closestNPC, totalDamage, 5f, direction, false);
+                                            
+                                            // Visuals
+                                            SoundEngine.PlaySound(SoundID.Item71, closestNPC.Center);
+                                            for (int i = 0; i < 20; i++)
+                                            {
+                                                Dust.NewDust(closestNPC.position, closestNPC.width, closestNPC.height, DustID.Blood, 0, 0, 100, default, 1.5f);
+                                                Dust.NewDust(Player.position, Player.width, Player.height, DustID.Smoke, 0, 0, 100, Color.Gray, 1.5f);
+                                            }
+                                            
+                                            sramAbility1Cooldown = SramAbility1BaseCooldown;
+                                        }
+                                    }
+
+                                    // Habilidad 2 (X): Invisibilidad
+                                    if (WakfuMod.Habilidad2Keybind.JustPressed && sramInvisibilityCooldown <= 0)
+                                    {
+                                        sramInvisibilityActive = true;
+                                        sramInvisibilityCooldown = SramInvisibilityBaseCooldown;
+                                        sramFirstAttackMultiplier = true;
+                                        
+                                        // Smoke Bomb Effect
+                                        for (int i = 0; i < 50; i++)
+                                        {
+                                            int dust = Dust.NewDust(Player.position, Player.width, Player.height, DustID.Smoke, 0, 0, 100, Color.Gray, 2f);
+                                            Main.dust[dust].velocity *= 1.5f;
+                                            Main.dust[dust].noGravity = true;
+                                        }
+                                        SoundEngine.PlaySound(SoundID.Item74, Player.Center); // Shadow sound
+                                    }
+                                    break;
+
+                                case WakfuClase.Sacrogrito:
+                                    // Habilidad 1 (V): Blood Hook
+                                    if (WakfuMod.Habilidad1Keybind.JustPressed && sacrogritoAbility1Cooldown <= 0)
+                                    {
+                                        // Spawn Hook Projectile
+                                        Vector2 direction = (Main.MouseWorld - Player.Center).SafeNormalize(Vector2.UnitX);
+                                        float speed = 24f;
+                                        int damage = 40; // Base damage
+                                        
+                                        // Apply passive damage boost to hook damage too
+                                        float missingHealthPct = 1f - ((float)Player.statLife / Player.statLifeMax2);
+                                        damage = (int)(damage * (1f + missingHealthPct));
+
+                                        Projectile.NewProjectile(
+                                            Player.GetSource_FromThis("SacrierHook"),
+                                            Player.Center,
+                                            direction * speed,
+                                            ModContent.ProjectileType<SacrierHookProjectile>(),
+                                            damage,
+                                            5f,
+                                            Player.whoAmI
+                                        );
+                                        
+                                        SoundEngine.PlaySound(SoundID.Item1, Player.Center); // Throw sound
+                                        sacrogritoAbility1Cooldown = SacrogritoAbility1BaseCooldown;
+                                    }
+
+                                    // Habilidad 2 (X): Punishment / Sacrifice
+                                    if (WakfuMod.Habilidad2Keybind.JustPressed && sacrogritoAbility2Cooldown <= 0)
+                                    {
+                                        // Cost: 50% Current HP
+                                        int cost = Player.statLife / 2;
+                                        if (cost > 0)
+                                        {
+                                            Player.statLife -= cost;
+                                            CombatText.NewText(Player.getRect(), Color.Red, "-" + cost, true);
+                                            
+                                            // Buffs: Defense, Regen, Thorns, Inferno
+                                            int duration = 7200; // 2 minutes
+                                            Player.AddBuff(BuffID.Ironskin, duration);
+                                            Player.AddBuff(BuffID.Regeneration, duration);
+                                            Player.AddBuff(BuffID.Thorns, duration);
+                                            Player.AddBuff(BuffID.Inferno, duration);
+                                            
+                                            // Visuals
+                                            SoundEngine.PlaySound(SoundID.Roar, Player.Center);
+                                            for (int i = 0; i < 30; i++)
+                                            {
+                                                Dust.NewDust(Player.position, Player.width, Player.height, DustID.Blood, 0, -2f, 100, default, 2f);
+                                            }
+                                            
+                                            sacrogritoAbility2Cooldown = SacrogritoAbility2BaseCooldown;
+                                        }
+                                    }
+                                    break;
+
+                                case WakfuClase.Feca:
+                                    // Habilidad 1 (V): Glyphs
+                                    if (WakfuMod.Habilidad1Keybind.JustPressed && fecaAbility1Cooldown <= 0)
+                                    {
+                                        // 1. Detect Existing Glyph
+                                        Projectile existingGlyph = null;
+                                        for (int i = 0; i < Main.maxProjectiles; i++)
+                                        {
+                                            if (Main.projectile[i].active && 
+                                                Main.projectile[i].owner == Player.whoAmI && 
+                                                Main.projectile[i].type == ModContent.ProjectileType<Content.Projectiles.FecaGlyphProjectile>())
+                                            {
+                                                existingGlyph = Main.projectile[i];
+                                                break; // Only 1 allowed
+                                            }
+                                        }
+
+                                        // 2. Check overlap
+                                        bool isOverlap = false;
+                                        if (existingGlyph != null)
+                                        {
+                                            if (existingGlyph.getRect().Contains(Main.MouseWorld.ToPoint()))
+                                            {
+                                                isOverlap = true;
+                                            }
+                                            // Kill the old one in both cases (Move or Upgrade = Replace)
+                                            existingGlyph.Kill();
+                                        }
+
+                                        // 3. Stats Calculation
+                                        float magicBonus = Player.GetTotalDamage(DamageClass.Magic).Additive;
+                                        int bonusStacks = 0;
+                                        if (magicBonus > 1.0f)
+                                        {
+                                            bonusStacks = (int)((magicBonus - 1.0f) / 0.05f);
+                                        }
+
+                                        int damage;
+                                        int empowered = 0;
+
+                                        if (isOverlap)
+                                        {
+                                            // Upgrade Stats: Base +5, Bonus +5 -> 45 + 45 per stack
+                                            damage = 45 + (45 * bonusStacks);
+                                            empowered = 1; // ai[1] for Empowered
+                                        }
+                                        else
+                                        {
+                                            // Normal Stats: 45 + 45 per stack
+                                            damage = 45 + (45 * bonusStacks);
+                                            empowered = 0;
+                                        }
+
+                                        // 4. Spawn
+                                        // Projectile.NewProjectile expects the CENTER of the projectile, and then subtracts half width/height internally.
+                                        // So we just pass Main.MouseWorld.
+                                        Vector2 spawnPos = Main.MouseWorld;
+                                        
+                                        Projectile.NewProjectile(
+                                            Player.GetSource_Misc("FecaGlyph"),
+                                            spawnPos, 
+                                            Vector2.Zero,
+                                            ModContent.ProjectileType<Content.Projectiles.FecaGlyphProjectile>(),
+                                            damage,
+                                            0f,
+                                            Player.whoAmI,
+                                            0, // ai[0] timer
+                                            empowered // ai[1] empowered state
+                                        );
+
+                                        fecaAbility1Cooldown = FecaAbility1BaseCooldown;
+                                    }
+                                    // Habilidad 2 (X): Shield
+                                    if (WakfuMod.Habilidad2Keybind.JustPressed && fecaAbility2Cooldown <= 0)
+                                    {
+                                        // 1. Calculate Shield Amount
+                                        float magicBonus = Player.GetTotalDamage(DamageClass.Magic).Additive;
+                                        int bonusStacks = 0;
+                                        if (magicBonus > 1.0f)
+                                        {
+                                            bonusStacks = (int)((magicBonus - 1.0f) / 0.05f);
+                                        }
+                                        int shieldAmount = 500 + (25 * bonusStacks);
+
+                                        // 2. Find Target (Closest Player to Cursor)
+                                        Player target = null;
+                                        float maxDist = 400f; // Range check
+                                        
+                                        // Self check first ? No, prioritize closest to cursor
+                                        if (Vector2.Distance(Main.MouseWorld, Player.Center) < maxDist)
+                                        {
+                                            target = Player; // Default to self
+                                        }
+                                        
+                                        // Check others
+                                        for (int i = 0; i < Main.maxPlayers; i++)
+                                        {
+                                            Player p = Main.player[i];
+                                            if (p.active && !p.dead)
+                                            {
+                                                float d = Vector2.Distance(Main.MouseWorld, p.Center);
+                                                if (d < maxDist)
+                                                {
+                                                    maxDist = d;
+                                                    target = p;
+                                                }
+                                            }
+                                        }
+
+                                        if (target != null)
+                                        {
+                                            // --- IMPLEMENTACIÓN: SOLO 1 ESCUDO ---
+                                            // 0. Si ya habíamos escudado a alguien antes, quitarle el escudo
+                                            if (fecaLastShieldTarget != -1)
+                                            {
+                                                // Si es el mismo de antes, ya se sobrescribirá. Pero si es diferente...
+                                                if (fecaLastShieldTarget != target.whoAmI)
+                                                {
+                                                    // Mandar mensaje para borrar el escudo del anterior
+                                                    Player oldTarget = Main.player[fecaLastShieldTarget];
+                                                    // Solo si sigue activo. Si se desconectó, da igual.
+                                                    if (oldTarget.active) 
+                                                    {
+                                                        // Update Local
+                                                        var oldWP = oldTarget.GetModPlayer<WakfuPlayer>();
+                                                        oldWP.fecaShieldHP = 0;
+                                                        oldWP.fecaShieldMaxHP = 0;
+                                                        oldWP.fecaShieldDuration = 0;
+                                                        
+                                                        // Sync Removal
+                                                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                                                        {
+                                                            ModPacket packet = Mod.GetPacket();
+                                                            packet.Write((byte)WakfuMod.MessageType.FecaShieldUpdate);
+                                                            packet.Write((byte)oldTarget.whoAmI);
+                                                            packet.Write(0); // 0 Amount = Remove
+                                                            packet.Send();
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Actualizar tracking
+                                            fecaLastShieldTarget = target.whoAmI;
+
+                                            // Apply Shield Locally (Target Update)
+                                            // Since we are the sender and the server won't echo back to us, we must update the target locally.
+                                            var targetWP = target.GetModPlayer<WakfuPlayer>();
+                                            targetWP.fecaShieldHP = shieldAmount;
+                                            targetWP.fecaShieldMaxHP = shieldAmount;
+                                            targetWP.fecaShieldDuration = 7200; // 2 minutos duracion
+
+                                            if (target.whoAmI == Player.whoAmI)
+                                            {
+                                                Main.NewText($"Shielded Self: {shieldAmount} HP! (2m)", Color.LightGreen);
+                                            }
+                                            else
+                                            {
+                                                Main.NewText($"Shielded {target.name}: {shieldAmount} HP! (2m)", Color.LightGreen);
+                                            }
+
+                                            // Sync Packet
+                                            if (Main.netMode == NetmodeID.MultiplayerClient)
+                                            {
+                                                ModPacket packet = Mod.GetPacket();
+                                                packet.Write((byte)WakfuMod.MessageType.FecaShieldUpdate);
+                                                packet.Write((byte)target.whoAmI);
+                                                packet.Write(shieldAmount);
+                                                packet.Send();
+                                            }
+                                            
+                                            fecaAbility2Cooldown = FecaAbility2BaseCooldown;
+                                        }
+                                    }
+                                    break;
+
                             } // Fin del switch
                     }
                 } // --- Comprobar si la espada Yopuka está siendo usada con clic derecho ---
@@ -1730,7 +2139,7 @@ namespace WakfuMod.jugador
                 
                 string classList = currentPreset == 1 ? 
                     "Selatrop (F1), Yopuka (F2), Steamer (F3), Tymador (F4), Zurcarac (F5), Xelor (F6), Hipermago (F7), Ocra (F8)" : 
-                    "Uginak (F1), Aniripsa (F2), [Coming Soon] (F3-F8)";
+                    "Uginak (F1), Aniripsa (F2), Sram (F3), Sacrier (F4), Feca (F5), [Coming Soon] (F6-F8)";
 
                 Main.NewText($"Preset {currentPreset} selected: {classList}", Color.Yellow);
                 return; // Salir para que el mensaje sea visible antes de seleccionar
@@ -1828,7 +2237,10 @@ namespace WakfuMod.jugador
                 }
                 else
                 {
-                    Main.NewText("Class slot F3 (Preset 2) - Coming Soon!", Color.Gray);
+                    claseSeleccionada = WakfuClase.Sram;
+                    mensaje = "¡You are Sram!\nSram Dagger sent to your inventory\nSkill 1 (V): Shadow Step (Backstab)\nSkill 2 (X): Invisibility (20s CD)\nFirst attack from stealth deals 8x CRIT damage.";
+                    colorMensaje = Color.Purple;
+                    accionExtra = () => Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSram"), ModContent.ItemType<SramDagger>());
                 }
             }
             else // --- Lógica específica para F4 ---
@@ -1836,26 +2248,34 @@ namespace WakfuMod.jugador
             {
                 if (currentPreset == 1)
                 {
-                // --- CASO 1: Aún no tiene clase ---
-                if (claseElegida == WakfuClase.Ninguna)
-                {
-                    claseElegida = WakfuClase.Tymador;
-                    string mensajeInicial = "¡You are Rogue/Tymador!\nKick-u! weapon sent to your inventory\nSkill 1: Place Bomb / Swap\nSkill 2: Detonate Bombs\nBombs link and combo!\nPress F4 again to join a Gobbowl team!"; // Mensaje actualizado
-                    colorMensaje = Color.DarkGray;
-                    Main.NewText(mensajeInicial, colorMensaje);
-                    haMostradoMensajeClase = true; // Marcar que ya eligió
-                    TymadorAbilityHandler.ResetBombSystem(); // Acción específica del Tymador
-                    Player.QuickSpawnItem(Player.GetSource_Misc("ClaseTymador"), ModContent.ItemType<TymadorKick>()); // Dar el arma de patada
+                    // --- CASO 1: Aún no tiene clase ---
+                    if (claseElegida == WakfuClase.Ninguna)
+                    {
+                        claseElegida = WakfuClase.Tymador;
+                        string mensajeInicial = "¡You are Rogue/Tymador!\nKick-u! weapon sent to your inventory\nSkill 1: Place Bomb / Swap\nSkill 2: Detonate Bombs\nBombs link and combo!\nPress F4 again to join a Gobbowl team!"; // Mensaje actualizado
+                        colorMensaje = Color.DarkGray;
+                        Main.NewText(mensajeInicial, colorMensaje);
+                        haMostradoMensajeClase = true; // Marcar que ya eligió
+                        TymadorAbilityHandler.ResetBombSystem(); // Acción específica del Tymador
+                        Player.QuickSpawnItem(Player.GetSource_Misc("ClaseTymador"), ModContent.ItemType<TymadorKick>()); // Dar el arma de patada
 
-                    // Sincronizar claseElegida (Necesitarás un paquete para esto si no lo tienes ya)
-                    // SendClasePacket(claseElegida); // Ejemplo de función de envío
-                }
+                        // Sincronizar claseElegida (Necesitarás un paquete para esto si no lo tienes ya)
+                        // SendClasePacket(claseElegida); // Ejemplo de función de envío
+                    }
 
-                // Si no es Ninguna ni Tymador, no debería llegar aquí por la condición inicial del método
+                    // Si no es Ninguna ni Tymador, no debería llegar aquí por la condición inicial del método
                 }
                 else
                 {
-                    Main.NewText("Class slot F4 (Preset 2) - Coming Soon!", Color.Gray);
+                    // Preset 2: Sacrogrito
+                    claseSeleccionada = WakfuClase.Sacrogrito;
+                    mensaje = "¡You are Sacrier!\nBerserker Tank.\nSkill 1 (V): Blood Hook - Grapple and steal life.\nSkill 2 (X): Punishment - Sacrifice HP for massive buffs.\nPassive: +Damage based on missing HP.";
+                    colorMensaje = Color.DarkRed;
+                    accionExtra = () =>
+                    {
+                        // Dar items iniciales si es necesario
+                        // Player.QuickSpawnItem(Player.GetSource_Misc("ClaseSacrogrito"), ModContent.ItemType<SacrierWeapon>()); 
+                    };
                 }
             }
 
@@ -1874,7 +2294,9 @@ namespace WakfuMod.jugador
                 }
                 else
                 {
-                    Main.NewText("Class slot F5 (Preset 2) - Coming Soon!", Color.Gray);
+                    claseSeleccionada = WakfuClase.Feca;
+                    mensaje = "¡You are Feca!\nProtector of the party.\nSkill 1 (V): Glyphs - Place a magical glyph on the ground.\nSkill 2 (X): Shield - Protect yourself or allies.";
+                    colorMensaje = Color.Orange;
                 }
             }
             else if (ks.IsKeyDown(Keys.F6))
@@ -1935,6 +2357,41 @@ namespace WakfuMod.jugador
                 accionExtra?.Invoke();
                 // TODO: Sincronizar claseElegida
             }
+        }
+
+        public override void PostUpdateEquips()
+        {
+            // Sacrogrito Passive: Damage increases with missing health
+            if (claseElegida == WakfuClase.Sacrogrito)
+            {
+                float missingHealthPct = 1f - ((float)Player.statLife / Player.statLifeMax2);
+                // Increase all damage by the missing health percentage
+                Player.GetDamage(DamageClass.Generic) += missingHealthPct;
+                
+                // Passive: Base +100 HP + Extra from Crystals
+                Player.statLifeMax2 += 100 + sacrierExtraMaxLife;
+            }
+        }
+
+        // --- Sacrogrito: Life Crystal and Heart Pickup Bonus ---
+        public override bool OnPickup(Item item)
+        {
+            if (claseElegida == WakfuClase.Sacrogrito)
+            {
+                // Check for hearts
+                if (item.type == ItemID.Heart || item.type == ItemID.CandyApple || item.type == ItemID.CandyCane)
+                {
+                    // Vanilla hearts heal 20. We add +10 extra.
+                    int extraHeal = 10;
+                    Player.statLife += extraHeal;
+                    if (Player.statLife > Player.statLifeMax2)
+                    {
+                        Player.statLife = Player.statLifeMax2;
+                    }
+                    Player.HealEffect(extraHeal); // Show the extra heal number
+                }
+            }
+            return base.OnPickup(item);
         }
 
         // --- Lógica de Rage ---
@@ -2011,6 +2468,62 @@ namespace WakfuMod.jugador
         // --- ModifyHurt: Absorción de daño con vida extra (Uginak) ---
         public override void ModifyHurt(ref Player.HurtModifiers modifiers)
         {
+            // Feca Shield Logic
+            if (fecaShieldHP > 0)
+            {
+                // We cannot accurately predict dmg here easily without intricate math, 
+                // but we can try to mitigate.
+                // However, standard mods usually reduce damage in PreHurt or ModifyHurt.
+                // Since ModifyHurt uses modifiers, let's allow the hit but use PostHurt to heal back lost HP,
+                // OR reduce incoming damage if we want to effectively block it.
+                // "Recibirá todo el daño antes que la vida".
+                // Let's rely on ModifyHurt reducing damage to 1 if shield > damage?
+                
+                // Let's assume damage ~ 50.
+                // If Shield=500.
+                // We want Player to lose 0 HP (or 1), and Shield to lose 50.
+                
+                // Tricky part: We don't know exact damage yet (Defense calc happens later?).
+                // Usually ModifyHurt happens before Defense? Yes.
+                // Let's just create a flat absorption logic in OnHurt which is cleaner for syncing final damage, 
+                // but won't prevent death if hit > maxHP.
+                // Risk: One-shot kills player even with Shield.
+                
+                // Implementation: PostHurt works best for "Shield takes damage instead".
+                // We heal Player.statLife back by damageAmount.
+                // We subtract damageAmount from Shield.
+                // If damage > Shield, we heal only ShieldAmount and set Shield=0.
+                
+                // EXCEPT: If damage > currentHP, Player dies before PostHurt.
+                // So we need ModifyHurt to reduce damage if it would kill us (ConsumableDodge-like).
+                // Or just reduce damage by a huge % and track it?
+                
+                // Let's try to block 100% of damage in ModifyHurt if Shield > 0, 
+                // and then manually subtract from Shield based on valid estimates?
+                // No, estimates are bad.
+                
+                // Let's stick to the "Reactive Shield" logic in PostHurt for now, assuming hits aren't one-shots.
+                // It's the standard tModLoader way for uncomplicated shields.
+                // See PostHurt implementation below.
+            }
+
+            // Sram: Invisibility Damage Reduction
+            if (sramInvisibilityActive)
+            {
+                modifiers.FinalDamage *= 0;
+                modifiers.FinalDamage.Flat += 1;
+                
+                sramInvisibilityActive = false;
+                sramFirstAttackMultiplier = false;
+                Player.opacityForAnimation = 1f; // Reset transparency immediately
+                Main.NewText("Invisibility Broken by Damage!", Color.Gray);
+                
+                for (int i = 0; i < 20; i++)
+                {
+                    Dust.NewDust(Player.position, Player.width, Player.height, DustID.Smoke, 0, 0, 100, Color.Gray, 1.5f);
+                }
+            }
+
             // Uginak: Si tiene vida extra, absorber daño primero del tanque
             if (claseElegida == WakfuClase.Uginak && uginakExtraLife > 0)
             {
@@ -2021,9 +2534,72 @@ namespace WakfuMod.jugador
             }
         }
         
+        public override void DrawEffects(PlayerDrawSet drawInfo, ref float r, ref float g, ref float b, ref float a, ref bool fullBright)
+        {
+            if (fecaShieldHP > 0)
+            {
+                // Circular Green Particles (Wakfu-like Shield)
+                if (Main.rand.NextBool(5)) // Not every frame
+                {
+                    float angle = Main.rand.NextFloat(0, MathHelper.TwoPi);
+                    float radius = 40f;
+                    Vector2 offset = angle.ToRotationVector2() * radius;
+                    
+                    Dust d = Dust.NewDustPerfect(Player.Center + offset, DustID.TerraBlade, Vector2.Zero, 150, Color.LightGreen, 1.2f);
+                    d.noGravity = true;
+                    // Make them sweep?
+                    d.velocity = angle.ToRotationVector2().RotatedBy(MathHelper.PiOver2) * 2f;
+                }
+            }
+        }
+
         // --- PostHurt: Absorber daño del tanque de vida después del golpe ---
         public override void PostHurt(Player.HurtInfo info)
         {
+            // Feca Shield Absorption
+            if (fecaShieldHP > 0)
+            {
+                int damageReceived = info.Damage;
+                if (damageReceived > 0)
+                {
+                    int oldShieldHP = fecaShieldHP;
+                    int absorbed = 0;
+                    if (fecaShieldHP >= damageReceived)
+                    {
+                        absorbed = damageReceived;
+                        fecaShieldHP -= absorbed;
+                    }
+                    else
+                    {
+                        absorbed = fecaShieldHP;
+                        fecaShieldHP = 0;
+                    }
+
+                    if (absorbed > 0)
+                    {
+                        Player.statLife += absorbed;
+                        Player.HealEffect(absorbed, true); // Visual green number for heal (implies shield saved hp)
+                        
+                        // Shield Warning
+                        if (fecaShieldHP > 0 && fecaShieldHP <= 100 && oldShieldHP > 100)
+                        {
+                            Main.NewText($"The shield has {fecaShieldHP} HP left, it is about to break!", Color.Orange);
+                        }
+
+                        // Sync Shield HP (to show others it dropped)
+                        if (Main.netMode == NetmodeID.MultiplayerClient)
+                        {
+                            // Send update packet for SELF
+                            ModPacket packet = Mod.GetPacket();
+                            packet.Write((byte)WakfuMod.MessageType.FecaShieldUpdate);
+                            packet.Write((byte)Player.whoAmI);
+                            packet.Write(fecaShieldHP);
+                            packet.Send();
+                        }
+                    }
+                }
+            }
+
             // Uginak: Restaurar vida si tenía tanque disponible
             if (claseElegida == WakfuClase.Uginak && uginakExtraLife > 0)
             {
@@ -2080,6 +2656,24 @@ namespace WakfuMod.jugador
         // --- ModifyHitNPCWithProj (Aplica Multiplicador de Rabia a Proyectiles) ---
         public override void ModifyHitNPCWithProj(Projectile proj, NPC target, ref NPC.HitModifiers modifiers)
         {
+            // Sram: Break Invisibility and Apply Damage Multiplier
+            if (sramInvisibilityActive && proj.owner == Player.whoAmI)
+            {
+                if (sramFirstAttackMultiplier)
+                {
+                    modifiers.SetCrit(); // 100% Crit Chance
+                    modifiers.CritDamage *= 4f; // 8x Crit Damage (Base 2x * 4)
+                    sramFirstAttackMultiplier = false;
+                }
+                sramInvisibilityActive = false;
+                Player.opacityForAnimation = 1f; // Reset transparency immediately
+                Main.NewText("Invisibility Broken by Attack!", Color.Gray);
+                for (int i = 0; i < 20; i++)
+                {
+                    Dust.NewDust(Player.position, Player.width, Player.height, DustID.Smoke, 0, 0, 100, Color.Gray, 1.5f);
+                }
+            }
+
             // Aplicar bonus de daño crítico si tiene
             if (critDamageBonus > 0f)
             {
@@ -2144,6 +2738,24 @@ namespace WakfuMod.jugador
         // --- ModifyHitNPCWithItem (Aplica bonus de críticos a armas cuerpo a cuerpo) ---
         public override void ModifyHitNPCWithItem(Item item, NPC target, ref NPC.HitModifiers modifiers)
         {
+            // Sram: Break Invisibility and Apply Damage Multiplier
+            if (sramInvisibilityActive)
+            {
+                if (sramFirstAttackMultiplier)
+                {
+                    modifiers.SetCrit(); // 100% Crit Chance
+                    modifiers.CritDamage *= 4f; // 8x Crit Damage (Base 2x * 4)
+                    sramFirstAttackMultiplier = false;
+                }
+                sramInvisibilityActive = false;
+                Player.opacityForAnimation = 1f; // Reset transparency immediately
+                Main.NewText("Invisibility Broken by Attack!", Color.Gray);
+                for (int i = 0; i < 20; i++)
+                {
+                    Dust.NewDust(Player.position, Player.width, Player.height, DustID.Smoke, 0, 0, 100, Color.Gray, 1.5f);
+                }
+            }
+
             // Aplicar bonus de daño crítico si tiene
             if (critDamageBonus > 0f)
             {
@@ -2234,22 +2846,99 @@ namespace WakfuMod.jugador
             switch (claseElegida)
             {
                 case WakfuClase.Selatrop:
-                    scalingText = " - You scale with Ranged damage.";
+                    scalingText = "\n--- SELATROP MECHANICS ---\n" +
+                                  "Scaling: Ranged Damage.\n" +
+                                  "Skill 1 (V): Portal - Place a portal at cursor. Teleport between them.\n" +
+                                  "Skill 2 (X): Portal Detonation - Explode all active portals.\n" +
+                                  "Passive: You and your projectiles and allies can pass through portals.";
                     break;
                 case WakfuClase.Yopuka:
-                    scalingText = " - You scale with Melee damage.";
+                    scalingText = "\n--- YOPUKA MECHANICS ---\n" +
+                                  "Scaling: Melee Damage.\n" +
+                                  "Skill 1 (V): God's Punch - Massive god hand falls from the sky.\n" +
+                                  "Skill 2 (X): Jump - Leap and stomp enemies.\n" +
+                                  "Passive: Rage - Gain damage bonus when hitting melee enemies or taking damage.";
                     break;
                 case WakfuClase.Steamer:
-                    scalingText = BalanceMode ? " - You scale with Ranged damage." : " - You scale with Summon damage.";
+                    scalingText = "\n--- STEAMER MECHANICS ---\n" +
+                                  (BalanceMode ? "Scaling: Ranged Damage (Balance Mode ON).\n" : "Scaling: Summon Damage (Balance Mode OFF).\n") +
+                                  "Skill 1 (V): Stasis Turret - Place turret / Fire Laser if placed.\n" +
+                                  "Skill 2 (X): Turret Overload - Detonate turret for massive damage.\n" +
+                                  "Passive: Turrets shoot automatically to an enemy thats affected by sticky grenade from right click steamerGun for massive xplosion.";
                     break;
                 case WakfuClase.Tymador:
-                    scalingText = " - You scale with Melee damage.";
+                    scalingText = "\n--- TYMADOR (ROGUE) MECHANICS ---\n" +
+                                  "Scaling: Melee Damage.\n" +
+                                  "Skill 1 (V): Bomb / Swap - Place bomb or swap position with one *always with max tier bomb.\n" +
+                                  "Skill 2 (X): Detonate - Explode all bombs.\n" +
+                                  "Passive: Bombs link together to form laser walls.";
                     break;
                 case WakfuClase.Zurcarac:
-                    scalingText = " - You scale with Summon damage.";
+                    scalingText = "\n--- ZURCARAK (ECAFLIP) MECHANICS ---\n" +
+                                  "Scaling: Summon Damage.\n" +
+                                  "Skill 1 (V): Summon Kitten / Attack - Call minion or command attack.\n" +
+                                  "Skill 2 (X): Roll Die - Random effect (Heal, Damage, Buffs).\n" +
+                                  "Passive: Lucky Streak - All damage is randomized (-20% to +25%).";
                     break;
                 case WakfuClase.Xelor:
-                    scalingText = " - You scale with Magic damage.";
+                    scalingText = "\n--- XELOR MECHANICS ---\n" +
+                                  "Scaling: Magic Damage.\n" +
+                                  "Skill 1 (V): Teleport - Instant short-range teleport.\n" +
+                                  "Skill 2 (X): Time Suspension - Freeze enemies / Rewind time.\n" +
+                                  "Passive: WIP";
+                    break;
+                case WakfuClase.Hipermago:
+                    scalingText = "\n--- HIPERMAGO (HUPPERMAGE) MECHANICS ---\n" +
+                                  "Scaling: Ranged Damage (All magic scales with Ranged).\n" +
+                                  "Skill 1 (V): Double Light Ball - Fire 2 energy balls. Armor piercing combo.\n" +
+                                  "Skill 2 (X): Elemental Combo/ Light Spear - Combine runes for powerful effects or throw a spear that negates armor.\n" +
+                                  "Passive: Rune Mastery - Generate runes with weapons to unlock combos.";
+                    break;
+                case WakfuClase.Ocra:
+                    scalingText = "\n--- OCRA (CRA) MECHANICS ---\n" +
+                                  "Scaling: Ranged Damage.\n" +
+                                  "Skill 1 (V): Beacon - Place a tactical beacon.\n" +
+                                  "Skill 2 (X): Homing Arrow - Fires an arrow that targets beacons.\n" +
+                                  "Passive: Precision - Gain stacks for dealing ranged damage, increasing damage.";
+                    break;
+                case WakfuClase.Uginak:
+                    scalingText = "\n--- UGINAK MECHANICS ---\n" +
+                                  "Scaling: Melee Damage.\n" +
+                                  "Skill 1 (V): War Hound - Summon a dog to fight for you. If there is a doggo summoned, UgiJump instead.\n" +
+                                  "Skill 2 (X): Hunter's Mark - Mark an enemy (target at cursor) for extra damage. Get 50% hp as life tank\n" +
+                                  "Passive: Life Tank - Store hp from marked enemies. Hunt em down.";
+                    break;
+                case WakfuClase.Aniripsa:
+                    scalingText = "\n--- ANIRIPSA MECHANICS ---\n" +
+                                  "Scaling: Magic Damage.\n" +
+                                  "Skill 1 (V): Healing Mark - Mark ally to heal or enemy to damage.\n" +
+                                  "Skill 2 (X): Reconstituting Word - Explosion that heals allies and hurts enemies.\n" +
+                                  "Rufus summoning weapon and free wings";
+                    break;
+                case WakfuClase.Sram:
+                    scalingText = "\n--- SRAM MECHANICS ---\n" +
+                                  "Scaling: Melee Damage.\n" +
+                                  "Passive: Attacks from Invisibility deal 3x CRIT damage (100% Crit Chance).\n" +
+                                  "Skill 1 (V): Shadow Step - Teleport behind enemy + Backstab (50 Base Dmg + Scaling).\n" +
+                                  "   Bonus: +20 Flat Damage for every 5% Melee Damage bonus. This skill doesnt break invisibility.\n" +
+                                  "Skill 2 (X): Invisibility (20s CD) - Enemies ignore you *buged, 0% Spawn Rate.\n" +
+                                  "   Defense: Shadow Slash destroys projectiles in 80px radius.\n" +
+                                  "   Broken by: Attacking or Taking Damage.";
+                    break;
+                case WakfuClase.Sacrogrito:
+                    scalingText = "\n--- SACRIER MECHANICS ---\n" +
+                                  "Scaling: Melee Damage.\n" +
+                                  "Passive: Berserk - Damage increases by % of missing health (up to +100% at 0 HP).\n" +
+                                  "   Bonus: +100 Base HP. +10 HP from Hearts. +20 Max HP from Life Crystals.\n" +
+                                  "Skill 1 (V): Blood Hook - Grapple to blocks or enemies. Deals damage and steals 50 HP from enemies.\n" +
+                                  "Skill 2 (X): Punishment - Sacrifice 50% Current HP to gain Defense, Regen, Thorns, and Fire Aura for 2 minutes.";
+                    break;
+                case WakfuClase.Feca:
+                    scalingText = "\n--- FECA MECHANICS ---\n" +
+                                  "Scaling: Magic Damage.\n" +
+                                  "Skill 1 (V): Glyphs - Create a fire zone (Magic Dmg). Re-casting on a glyph empowers it.\n" +
+                                  "Skill 2 (X): Shield - Protect self/allies.\n" +
+                                  "Passive: Glyph Master - Glyphs deal 45 base dmg + 45 per 5% Magic Dmg bonus.";
                     break;
             }
 
@@ -2284,6 +2973,12 @@ namespace WakfuMod.jugador
             // Stats
             packet.Write(critDamageBonus);
 
+            // Sram
+            packet.Write(sramInvisibilityActive);
+
+            // Sacrier
+            packet.Write(sacrierExtraMaxLife);
+
             packet.Send(toWho, fromWho);
         }
 
@@ -2307,6 +3002,12 @@ namespace WakfuMod.jugador
             
             // Stats
             critDamageBonus = reader.ReadSingle();
+
+            // Sram
+            sramInvisibilityActive = reader.ReadBoolean();
+
+            // Sacrier
+            sacrierExtraMaxLife = reader.ReadInt32();
         }
 
         public override void CopyClientState(ModPlayer targetCopy)
@@ -2330,6 +3031,15 @@ namespace WakfuMod.jugador
             
             // Stats
             clone.critDamageBonus = critDamageBonus;
+
+            // Sram
+            clone.sramInvisibilityActive = sramInvisibilityActive;
+
+            // Sacrier
+            clone.sacrierExtraMaxLife = sacrierExtraMaxLife;
+
+            // Feca
+            clone.fecaShieldHP = fecaShieldHP;
         }
 
         public override void SendClientChanges(ModPlayer clientPlayer)
@@ -2347,18 +3057,75 @@ namespace WakfuMod.jugador
                 clone.hipermagoWaterCooldown != hipermagoWaterCooldown ||
                 clone.hipermagoElementalComboCooldown != hipermagoElementalComboCooldown ||
                 clone.rageTicks != rageTicks ||
-                clone.critDamageBonus != critDamageBonus)
+                clone.critDamageBonus != critDamageBonus ||
+                clone.sramInvisibilityActive != sramInvisibilityActive ||
+                clone.sacrierExtraMaxLife != sacrierExtraMaxLife ||
+                clone.fecaShieldHP != fecaShieldHP)
             {
                 SyncPlayer(toWho: -1, fromWho: Main.myPlayer, newPlayer: false);
             }
         }
 
 
+        // --- Sram: Spawn Rate Reduction ---
+        public override void PreUpdateBuffs()
+        {
+            if (sramInvisibilityActive)
+            {
+                // Reduce spawn rate to 0 (MaxSpawns = 0 stops spawning)
+                Player.nearbyActiveNPCs = 0; // Trick to influence some spawn logic, but mostly handled in EditSpawnRate if available or GlobalNPC
+            }
+        }
+
+        // --- PostUpdate: Sram Projectile Defense ---
+        public override void PostUpdate()
+        {
+            if (sramInvisibilityActive)
+            {
+                // Defense Hitbox (e.g., 80x80 around player)
+                Rectangle defenseHitbox = Utils.CenteredRectangle(Player.Center, new Vector2(80, 80));
+                
+                for (int i = 0; i < Main.maxProjectiles; i++)
+                {
+                    Projectile p = Main.projectile[i];
+                    if (p.active && p.hostile && p.damage > 0 && p.getRect().Intersects(defenseHitbox))
+                    {
+                        // Destroy projectile
+                        p.Kill();
+                        
+                        // Visuals: Dagger Slash
+                        SoundEngine.PlaySound(SoundID.Item71, p.Center); // Slash sound
+                        
+                        // Create slash dust effect
+                        Vector2 direction = (p.Center - Player.Center).SafeNormalize(Vector2.Zero);
+                        
+                        // Sparkles
+                        for (int j = 0; j < 10; j++)
+                        {
+                            Dust d = Dust.NewDustPerfect(p.Center, DustID.Silver, direction.RotatedByRandom(0.5f) * Main.rand.NextFloat(2f, 4f), 0, default, 1.5f);
+                            d.noGravity = true;
+                        }
+                        
+                        // Slash Line
+                        Vector2 slashDir = direction.RotatedBy(MathHelper.PiOver2);
+                        for (int k = -3; k <= 3; k++)
+                        {
+                             Vector2 offset = slashDir * k * 4;
+                             Dust d = Dust.NewDustPerfect(p.Center + offset, DustID.Shadowflame, direction * 2f, 150, Color.Purple, 1.2f);
+                             d.noGravity = true;
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Desconexión ---
         public override void PlayerDisconnect()
         {
             IsJumpingAsGod = false;
         }
+
+
 
         // --- Invisibilidad ---
         public override void HideDrawLayers(PlayerDrawSet drawInfo)

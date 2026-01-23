@@ -65,6 +65,9 @@ Projectiles: {
 	AniripsaMark.DisplayName: Aniripsa Mark
 	AniripsaExplosion.DisplayName: Aniripsa Explosion
 	RufusMinion.DisplayName: Rufus Minion
+	SramDaggerProjectile.DisplayName: Sram Dagger Projectile
+	SacrierHookProjectile.DisplayName: Sacrier Hook Projectile
+	FecaGlyphProjectile.DisplayName: Feca Glyph Projectile
 }
 
 Items: {
@@ -182,6 +185,16 @@ Items: {
 		DisplayName: Rufus
 		Tooltip: ""
 	}
+
+	SramDagger: {
+		Tooltip:
+			'''
+			Right click to throw daggers
+			This weapon benefits x8 crit when attacking from invis
+			Life Steal: Restores 20 HP on melee hit, 10 HP per thrown dagger
+			'''
+		DisplayName: Sram Dagger
+	}
 }
 
 Buffs: {
@@ -286,4 +299,5 @@ NPCs: {
 
 	Toross.DisplayName: Toross
 	TorossSword.DisplayName: Toross Sword
+	FecaGlyphProjectile.DisplayName: Feca Glyph
 }

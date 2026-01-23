@@ -1,22 +1,20 @@
 using Terraria;
 using Terraria.ModLoader;
-using WakfuMod.Content.Backgrounds; // Necesario para acceder a tu ModSurfaceBackgroundStyle
+// using WakfuMod.Content.Backgrounds; // Desactivado para evitar errores si borras la carpeta
 
-namespace WakfuMod.ModSystems // Reemplaza con tu namespace
+namespace WakfuMod.ModSystems 
 {
     public class ForestBackgroundSceneEffect : ModSceneEffect
     {
         public override bool IsSceneEffectActive(Player player)
         {
-             return player.ZoneForest && (player.ZoneOverworldHeight || player.ZoneSkyHeight) && !player.ZoneDirtLayerHeight && !player.ZoneRockLayerHeight;
+             return false; // Desactivado completamente
         }
 
         // --- MANTENER ESTO: Asigna la instancia del estilo ---
-        public override ModSurfaceBackgroundStyle SurfaceBackgroundStyle => ModContent.GetInstance<MyForestBackgroundStyle>();
+        // public override ModSurfaceBackgroundStyle SurfaceBackgroundStyle => ModContent.GetInstance<MyForestBackgroundStyle>();
 
-        // Opcional: Puedes cambiar otras cosas aquí también
-        // public override int Music => MusicLoader.GetMusicSlot(Mod, "Assets/Music/MyForestTheme");
-        // public override SceneEffectPriority Priority => SceneEffectPriority.BiomeMedium;
-        // public override void SpecialVisuals(Player player, bool isActive) { ... }
+        // Corregido: La prioridad debe ser mayor que 'None' para sobrescribir el bioma vanilla
+        public override SceneEffectPriority Priority => SceneEffectPriority.None;
     }
 }

@@ -195,27 +195,49 @@ namespace WakfuMod
                             if (wakfuPlayer.BalanceMode)
                             {
                                 // --- MODO BALANCEADO (Verde) ---
+                                // Escalar con daño a distancia
                                 if (addLifePercentDamage) // Explosión Violenta (Arma)
                                 {
-                                    finalDamage = 50;
+                                    // Custom Scaling: Base 100 + 200 per 10% Ranged Bonus
+                                    finalDamage = 100;
+                                    float rangedAdditive = owner.GetTotalDamage(DamageClass.Ranged).Additive;
+                                    if (rangedAdditive > 1.0f)
+                                    {
+                                        float bonus = rangedAdditive - 1.0f;
+                                        int stacks = (int)(bonus / 0.10f); // Cada 10%
+                                        finalDamage += stacks * 200;
+                                    }
                                 }
                                 else // Explosión Estándar (Manual)
                                 {
+                                    // Comportamiento anterior para la manual
                                     finalDamage = 20;
+                                    finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
                                 }
-                                // Escalar con daño a distancia
-                                finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
                             }
                             else
                             {
                                 // --- MODO ORIGINAL (Rojo) ---
-                                // Apply owner's damage modifiers (Using Magic for portals, adjust if needed)
-                                finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
-
-                                // Add % max life damage if flagged (for violent explosion)
-                                if (addLifePercentDamage)
+                                // Usar la misma lógica de escalado nueva (asumiendo que quieres aplicar esto al modo principal)
+                                // O si esto es "Original", ¿debería quedarme con la % de vida?
+                                // El usuario dijo "el balanceo del botón", lo que implica que es para el modo de balance o ambos si quiere cambiar la lógica.
+                                // Asumamos que quiere cambiar la lógica del arma (Violent Explosion) en general.
+                                
+                                if (addLifePercentDamage) 
                                 {
-                                    finalDamage += (int)(npc.lifeMax * 0.09f); // 10% max life bonus damage
+                                    // Base 100 + 200 per 10% Ranged Bonus
+                                    finalDamage = 100;
+                                    float rangedAdditive = owner.GetTotalDamage(DamageClass.Ranged).Additive;
+                                    if (rangedAdditive > 1.0f)
+                                    {
+                                        float bonus = rangedAdditive - 1.0f;
+                                        int stacks = (int)(bonus / 0.10f); // Cada 10%
+                                        finalDamage += stacks * 200;
+                                    }
+                                }
+                                else
+                                {
+                                    finalDamage = (int)owner.GetTotalDamage(DamageClass.Ranged).ApplyTo(finalDamage);
                                 }
                             }
 

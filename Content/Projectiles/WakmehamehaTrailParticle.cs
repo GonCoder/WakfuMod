@@ -4,16 +4,17 @@ using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using Terraria.ID;
 using Microsoft.Xna.Framework.Graphics; // Para dibujar
+using Terraria.GameContent; // Para TextureAssets
 
 namespace WakfuMod.Content.Projectiles
 {
     // Partícula visible y dañina dejada por el líder
     public class WakmehamehaTrailParticle : ModProjectile
     {
-        private const int Lifetime = 120; // Cuánto tiempo permanece visible/activo el rastro (ajusta)
+        private const int Lifetime = 20; // 0.3 segundos aprox (60 ticks/s)
         private const int HitCooldown = 30; // Cooldown entre golpes del rastro al mismo NPC
 
-        public override string Texture => "Terraria/Images/Projectile_" + ProjectileID.ShadowBeamFriendly; // Usa una textura vanilla como placeholder o tu propia textura!
+        // No usamos Texture => ... porque dibujamos manualmente
 
         public override void SetDefaults()
         {
@@ -23,7 +24,7 @@ namespace WakfuMod.Content.Projectiles
             Projectile.hostile = false;
             Projectile.penetrate = -1;
             Projectile.timeLeft = Lifetime;
-            Projectile.alpha = 0; // Empieza visible
+            Projectile.alpha = 255; // Invisible (ahora el líder se encarga de lo visual o PreDraw)
             Projectile.tileCollide = false;
             Projectile.ignoreWater = true;
             Projectile.DamageType = DamageClass.Ranged; // DEBE COINCIDIR con el arma
@@ -36,86 +37,79 @@ namespace WakfuMod.Content.Projectiles
 
         public override void AI()
         {
-            // 1. Efecto de Fade Out
-            Projectile.alpha = (int)MathHelper.Lerp(0, 255, (float)(Lifetime - Projectile.timeLeft) / Lifetime);
-
-            // 2. Efecto de Polvo/Luz (Opcional)
-            if (Main.rand.NextBool(4))
-            {
-                Dust d = Dust.NewDustPerfect(Projectile.Center + Main.rand.NextVector2Circular(Projectile.width * 0.4f, Projectile.height * 0.4f),
-                                             DustID.MagicMirror, Vector2.Zero, 180, Color.LightCyan, 0.8f);
-                d.noGravity = true;
-                d.velocity *= 0.1f;
-            }
-            Lighting.AddLight(Projectile.Center, Color.Cyan.ToVector3() * 0.3f * (1f - Projectile.alpha / 255f));
+            // Sin lógica compleja, solo reducir timeLeft
         }
 
-         // --- NUEVO: Hook para modificar el daño ---
+        public override bool PreDraw(ref Color lightColor)
+        {
+            // Usamos MagicPixel para garantizar que se vea una línea sólida
+            Texture2D tex = TextureAssets.MagicPixel.Value;
+            
+            float rotation = Projectile.ai[0];
+            float length = Projectile.ai[1];
+            
+            if (length <= 0) length = 10f; 
+
+            // MagicPixel es 1x1. Escala X = longitud, Escala Y = grosor
+            Vector2 scale = new Vector2(length, 12f); 
+            Vector2 origin = new Vector2(0, 0.5f); 
+            
+            // Fade out
+            float alphaFactor = (float)Projectile.timeLeft / Lifetime;
+            
+            // Ajustamos color: NO forzar A=255. 
+            // Queremos que se vuelva transparente, no negro.
+            Color colorOuter = Color.Teal * alphaFactor;
+            
+            // Núcleo un poco más brillante pero del mismo tono o blanco
+            Color colorInner = Color.White * alphaFactor;
+
+            Vector2 drawPos = Projectile.Center - Main.screenPosition;
+
+            // Dibujar borde externo (Teal)
+            Main.EntitySpriteDraw(
+                tex,
+                drawPos,
+                new Rectangle(0,0,1,1),
+                colorOuter,
+                rotation,
+                origin,
+                scale,
+                SpriteEffects.None,
+                0
+            );
+
+            // Dibujar núcleo interno (más fino)
+            Main.EntitySpriteDraw(
+                tex,
+                drawPos,
+                new Rectangle(0,0,1,1),
+                colorInner,
+                rotation,
+                origin,
+                scale * new Vector2(1f, 0.3f), // Núcleo más fino todavía
+                SpriteEffects.None,
+                0
+            );
+
+            return false;
+        }
+
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
             Player player = Main.player[Projectile.owner];
-            global::WakfuMod.jugador.WakfuPlayer wakfuPlayer = player.GetModPlayer<global::WakfuMod.jugador.WakfuPlayer>();
-
-            if (wakfuPlayer.BalanceMode)
-            {
-                // --- MODO BALANCEADO (Verde) ---
-                // Daño fijo de 5 por tick
-                modifiers.SourceDamage.Base = 5;
-                modifiers.DefenseEffectiveness *= 0f; // Ignorar defensa (opcional, pero consistente con "daño puro")
-                modifiers.Knockback.Base = 0f;
-            }
-            else
-            {
-                // --- MODO ORIGINAL (Rojo) ---
-                // --- 1. Definir el porcentaje de daño ---
-                // Ajusta este valor (ej: 0.015f = 1.5% ahora hace 0.3%)
-                float percentOfMaxLife = 0.003f;
-
-                // --- 2. Calcular el daño ---
-                int calculatedDamage = 1 + (int)(target.lifeMax * percentOfMaxLife);
-
-                // --- 3. Establecer el daño base ---
-                modifiers.SourceDamage.Base = calculatedDamage;
-
-                // --- 4. Ignorar defensa ---
-                modifiers.DefenseEffectiveness *= 0f;
-
-                // --- 5. Anular knockback (ya debería ser 0, pero por si acaso) ---
-                modifiers.Knockback.Base = 0f;
-            }
-
-            // --- Opcional: Deshabilitar críticos ---
-            // modifiers.DisableCrit();
+            
+            // ELIMINADO LOGICA ANTIGUA (Balance/Original)
+            // AHORA: Usamos el daño base que viene del Projectile.
+            // Este daño ya fue calculado en el arma (WakmehamehaWeapon.ModifyShootStats)
+            // con la fórmula del usuario (+30 por cada 5% de daño a distancia).
+            
+            modifiers.SourceDamage.Base = Projectile.damage;
+            
+            // Mantener ignorar defensa si se desea que sea daño puro
+            modifiers.DefenseEffectiveness *= 0f; 
         }
 
-        // 3. Dibujo Personalizado (Opcional, si no usas una textura existente)
-        // Si usas tu propia textura, puedes mantener el PreDraw / PostDraw que tenías
-        // Si usas la textura vanilla como arriba, este método no es estrictamente necesario
-        // a menos que quieras cambiar el color o la rotación.
-        /*
-        public override bool PreDraw(ref Color lightColor)
-        {
-            Texture2D texture = ModContent.Request<Texture2D>(Texture).Value;
-            Rectangle frame = texture.Frame();
-            Vector2 origin = frame.Size() / 2f;
-            Color color = Projectile.GetAlpha(Color.Lerp(Color.Cyan, Color.White, 0.5f)); // Color con alpha
-
-            Main.EntitySpriteDraw(
-                texture,
-                Projectile.Center - Main.screenPosition,
-                frame,
-                color,
-                Projectile.rotation, // Puede rotar aleatoriamente? O fijo?
-                origin,
-                Projectile.scale, // Escala si es necesario
-                SpriteEffects.None,
-                0f);
-
-            return false; // No dibujar el sprite por defecto
-        }
-        */
-
-         // No necesita Colliding complejo, la hitbox es suficiente
-         // public override bool? Colliding(...) { ... }
+        // --- Cleaned up old code remnants ---
     }
 }

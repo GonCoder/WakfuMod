@@ -1,8 +1,7 @@
 🌌 Wakfu Mod — Terraria Edition
 Bring the magic, tactics, and chaos of the Wakfu universe into Terraria.
-Choose your class at world start (F1–F5), unlock powerful custom abilities, and play with brand-new mechanics inspired by Wakfu, Dofus, and Waven.
-
-This mod reimagines tactical RPG gameplay inside Terraria, with carefully designed classes, %MaxHP-based scaling, stylish visual effects, and deep gameplay variety.
+Choose your class at world start (F1–F8), unlock powerful custom abilities, and play with brand-new mechanics inspired by Wakfu, Dofus, and Waven.
+IMPORTANT! -> There are more classes if you press F9, it changes between classes presets.
 Follow discord Post to see the latest updates, here I upload detailed information for all minimal changes:
 https://discord.com/channels/103110554649894912/1354030852006215761
 

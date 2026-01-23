@@ -87,6 +87,26 @@ namespace WakfuMod.Content.Items.Weapons
             return true;
         }
 
+        public override void ModifyShootStats(Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback)
+        {
+            if (player.altFunctionUse != 2) // Clic Izquierdo
+            {
+                // BASE DAMAGE CALCULATION (Left Click)
+                // Base: vanilla item damage (1 or whatever is set in SetDefaults)
+                // Scaling: +30 dmg per 5% ranged damage bonus
+                
+                float rangedAdditive = player.GetTotalDamage(DamageClass.Ranged).Additive;
+                // Additive includes base 1.0. So 5% bonus is 1.05.
+                
+                if (rangedAdditive > 1.0f)
+                {
+                    float bonus = rangedAdditive - 1.0f;
+                    int stacks = (int)(bonus / 0.05f); // Cada 5%
+                    damage += stacks * 30;
+                }
+            }
+        }
+        
         public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
             // 'type' ya viene configurado desde CanUseItem según el clic

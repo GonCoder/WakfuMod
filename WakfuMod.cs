@@ -5,7 +5,6 @@ using System.IO; // Para BinaryReader
 using System.Collections.Generic; // Para List<T>
 using Terraria; // Para Main
 using Terraria.ID; // Para NetmodeID
-using WakfuMod.Content.Backgrounds;
 using Microsoft.Xna.Framework;
 using WakfuMod.Content.Items.BossSpawners;
 using WakfuMod.jugador;
@@ -79,6 +78,8 @@ namespace WakfuMod
             SpawnZurcarakMinion, // Nuevo mensaje para invocar al gatito
             NoxTeleport, // Nuevo mensaje para sincronizar teletransporte de Nox
             XelorTimeSuspension, // Nuevo mensaje para la habilidad X del Xelor
+            SramInvisibility, // Nuevo mensaje para sincronizar invisibilidad del Sram
+            FecaShieldUpdate, // Sync Feca Shield HP
         }
 
         // --- TU MÉTODO HandlePacket ---
@@ -251,6 +252,39 @@ namespace WakfuMod
                             packet.Write((byte)senderPlayer);
                             packet.Send(-1, whoAmI);
                         }
+                    }
+                    break;
+
+                case MessageType.FecaShieldUpdate:
+                    int targetPlayerID = reader.ReadByte();
+                    int shieldAmount = reader.ReadInt32();
+                    
+                    if (targetPlayerID >= 0 && targetPlayerID < Main.maxPlayers)
+                    {
+                        Player targetP = Main.player[targetPlayerID];
+                        if (targetP.active && !targetP.dead)
+                        {
+                            var wp = targetP.GetModPlayer<WakfuPlayer>();
+                            wp.fecaShieldHP = shieldAmount;
+                            wp.fecaShieldMaxHP = shieldAmount;
+                            if (shieldAmount > 0) wp.fecaShieldDuration = 7200; // Reset duration on receive
+                            else wp.fecaShieldDuration = 0;
+                            
+                            // Visual feedback on receipt
+                            if (shieldAmount > 0 && Main.netMode != NetmodeID.Server)
+                            {
+                                // Effect triggered in Draw/Update
+                            }
+                        }
+                    }
+
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        ModPacket packet = GetPacket();
+                        packet.Write((byte)MessageType.FecaShieldUpdate);
+                        packet.Write((byte)targetPlayerID);
+                        packet.Write(shieldAmount);
+                        packet.Send(-1, whoAmI); // Broadcast
                     }
                     break;
 
@@ -479,6 +513,31 @@ namespace WakfuMod
                     }
                     break;
 
+                case MessageType.SramInvisibility:
+                    byte sramPlayerID = reader.ReadByte();
+                    bool isInvisible = reader.ReadBoolean();
+
+                    if (Main.netMode == NetmodeID.Server)
+                    {
+                        // Retransmitir a otros clientes
+                        ModPacket packet = GetPacket();
+                        packet.Write((byte)MessageType.SramInvisibility);
+                        packet.Write(sramPlayerID);
+                        packet.Write(isInvisible);
+                        packet.Send(-1, whoAmI);
+                    }
+
+                    // Aplicar localmente (en servidor y clientes)
+                    if (sramPlayerID >= 0 && sramPlayerID < Main.maxPlayers)
+                    {
+                        Player p = Main.player[sramPlayerID];
+                        if (p.active)
+                        {
+                            WakfuPlayer wp = p.GetModPlayer<WakfuPlayer>();
+                            wp.sramInvisibilityActive = isInvisible;
+                        }
+                    }
+                    break;
 
                 // Otros cases para otros tipos de mensajes...
                 default:

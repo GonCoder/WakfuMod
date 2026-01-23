@@ -7,6 +7,7 @@ using WakfuMod.Content.Items.Mounts; // Namespace de tu item de montura
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.GameContent;
+using WakfuMod.jugador; // Added for WakfuPlayer access
 
 namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
 {
@@ -25,6 +26,39 @@ namespace WakfuMod.Common.GlobalNPCs // Ajusta el namespace
         // --- UGINAK HUNTER'S MARK ---
         public bool uginakMarked = false;
         public int uginakMarkedByPlayer = -1; // WhoAmI del jugador que marcó
+
+        public override bool PreAI(NPC npc)
+        {
+            // Sram Invisibility Logic: Force enemies to ignore invisible Sram
+            if (npc.target >= 0 && npc.target < 255)
+            {
+                Player targetPlayer = Main.player[npc.target];
+                if (targetPlayer.active && !targetPlayer.dead)
+                {
+                    var wakfuPlayer = targetPlayer.GetModPlayer<WakfuPlayer>();
+                    if (wakfuPlayer.sramInvisibilityActive)
+                    {
+                        // Force NPC to lose target
+                        npc.target = 255; // Set to invalid target
+                        
+                        // If the NPC is aggressive, maybe make it wander or stop?
+                        // For now, just removing the target should make vanilla AI switch to another player or wander.
+                        // If this is single player, they will just wander.
+                    }
+                }
+            }
+            return true;
+        }
+
+        public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns)
+        {
+            var wakfuPlayer = player.GetModPlayer<WakfuPlayer>();
+            if (wakfuPlayer.sramInvisibilityActive)
+            {
+                spawnRate = int.MaxValue; // Extremely slow spawn rate
+                maxSpawns = 0; // Prevent any spawns
+            }
+        }
 
         public override void ResetEffects(NPC npc)
         {

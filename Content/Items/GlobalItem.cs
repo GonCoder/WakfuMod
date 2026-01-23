@@ -1,6 +1,8 @@
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 using WakfuMod.jugador;
+using Microsoft.Xna.Framework;
 
 namespace WakfuMod.Content.Items
 {
@@ -26,6 +28,18 @@ namespace WakfuMod.Content.Items
             if (player.GetModPlayer<WakfuPlayer>().claseElegida == WakfuClase.Yopuka)
             {
                 modifiers.FinalDamage *= player.GetModPlayer<WakfuPlayer>().GetRageMultiplier();
+            }
+        }
+
+        public override void OnConsumeItem(Item item, Player player)
+        {
+            if (player.TryGetModPlayer<WakfuPlayer>(out var wakfuPlayer) && wakfuPlayer.claseElegida == WakfuClase.Sacrogrito)
+            {
+                if (item.type == ItemID.LifeCrystal)
+                {
+                    wakfuPlayer.sacrierExtraMaxLife += 20;
+                    Main.NewText("Sacrier Bonus: +20 Max Life!", Microsoft.Xna.Framework.Color.Red);
+                }
             }
         }
     }
